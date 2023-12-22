@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/dark-enstein/scour/internal/config"
 	"log"
 	"regexp"
 	"strings"
@@ -19,10 +20,6 @@ var (
 	ErrIPV6            = "IPv6 Address detected: Unsupported"
 	ErrIPv6tError      = errors.New(ErrIPV6)
 	ErrHostnameInvalid = errors.New("Hostname invalid")
-	HTTPVer            = "1.1"
-	HTTPSVer           = "1.1"
-	HTTP               = "http"
-	HTTPS              = "https"
 )
 
 type Protocol interface {
@@ -39,9 +36,9 @@ type Proctocol struct {
 func NewProtocol(s string) *Proctocol {
 	switch s {
 	case "http":
-		return &Proctocol{s, HTTPSVer}
+		return &Proctocol{s, config.HTTPVer}
 	case "https":
-		return &Proctocol{s, HTTPSVer}
+		return &Proctocol{s, config.HTTPSVer}
 	}
 	return nil
 }
@@ -79,22 +76,8 @@ func (u *URL) Bytes() []byte {
 	return []byte(u.rawString)
 }
 
-func (u *URL) ProtocolStruct() Proctocol {
-	return *NewProtocol(u.protocol)
-}
-
-func (u *URL) Protocol() string {
-	return u.protocol
-}
-
-func (u *URL) UProtocol() string {
-	p := NewProtocol(u.protocol)
-	return p.MustUpper()
-}
-
-func (u *URL) LProtocol() string {
-	p := NewProtocol(u.protocol)
-	return p.MustLower()
+func (u *URL) Protocol() *Proctocol {
+	return NewProtocol(u.protocol)
 }
 
 func (u *URL) Host() string {
@@ -152,9 +135,9 @@ func resolve(ctx context.Context, u string) (valid bool, protocol, host, port, p
 		valid = true
 		protocol = urlColSplit[0]
 		switch protocol {
-		case HTTP:
+		case config.HTTP:
 			port = DefaultHTTPPort
-		case HTTPS:
+		case config.HTTPS:
 			port = DefaultHTTPSPort
 		}
 		hostPath := strings.TrimLeft(urlColSplit[1], "/")

@@ -33,7 +33,7 @@ func Put(ctx context.Context, url *parser.URL, data []byte) (*RespHeaders, []byt
 	tDur := time.Since(t1)
 	//fmt.Println(resp)
 
-	respH := newHeaders(resp.Status, fmt.Sprintf("%s/1.1", url.Protocol()), resp.Header.Get("Date"), resp.Header.Get("Content-Type"), resp.Header.Get("Content-Length"), resp.Header.Get("Connection"), resp.Header.Get("Server"), resp.Header.Get("Access-Control-Allow-Origin"), resp.Header.Get("Access-Control-Allow-Credentials"))
+	respH := newHeaders(resp.Status, fmt.Sprintf("%s/1.1", url.Protocol().String()), resp.Header.Get("Date"), resp.Header.Get("Content-Type"), resp.Header.Get("Content-Length"), resp.Header.Get("Connection"), resp.Header.Get("Server"), resp.Header.Get("Access-Control-Allow-Origin"), resp.Header.Get("Access-Control-Allow-Credentials"))
 	if parser.ParseLogLevelFromCtx(ctx, parser.KeyV) == true {
 		log.Printf("Response: %v\n", respH)
 	}

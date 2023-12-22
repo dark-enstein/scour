@@ -9,14 +9,11 @@ import (
 	"github.com/spf13/pflag"
 	"log"
 	"net/http"
+	"os"
 )
 
 var (
-	VERBOSE    = false
-	METHOD     = http.MethodGet
-	DATA       = ""
-	CLIHEADERS = ""
-	FLGS       = NewFlags()
+	FLGS       = config.NewFlags()
 	ScourASCII = `
  _______  _______  _______  __   __  ______   
 |       ||       ||       ||  | |  ||    _ |  
@@ -46,13 +43,12 @@ connecting to %s
 `
 )
 
-func NewFlags() *config.Flags {
-	return &config.Flags{}
-}
-
 func main() {
-	initFlags()
-	fmt.Printf(ScourASCII, VERBOSE)
+	if err := initFlags(); err != nil {
+		log.Println(fmt.Errorf("errors encountered while validating flags: %w\n%s", err, config.Help))
+		os.Exit(1)
+	}
+	fmt.Printf(ScourASCII, FLGS.Verbose)
 	def, out := _main(pflag.Args())
 	if def {
 		pflag.PrintDefaults()
@@ -60,13 +56,16 @@ func main() {
 	fmt.Println(out)
 }
 
-func initFlags() {
+func initFlags() error {
 	pflag.BoolVarP(&FLGS.Verbose, "verbose", "v", false, "Turn on/off debug mode.")
 	pflag.StringVarP(&FLGS.Method, "X", "X", http.MethodGet, "Set request method.")
 	pflag.StringVarP(&FLGS.Data, "data", "d", "", "Pass request data.")
 	pflag.StringVarP(&FLGS.Headers, "Header", "H", "", "Pass in custom request headers.")
-	pflag.BoolVarP(&FLGS.UnixSocket, "abstract-unix-socket", "aus", false, "(HTTP) Connect through an abstract Unix domain socket, instead of using the network. Note: netstat shows the path of an abstract socket prefixed with '@', however the <path> argument should not have this leading character.")
+	pflag.BoolVarP(&FLGS.UnixSocket, "abstract-unix-socket", "aus", false, "(HTTP) Connect through an abstract Unix domain socket, instead of using the network. Note: netstat shows the path of an abstract socket prefixed with '@', however the <path> argument should not have this leading character.\nIf --abstract-unix-socket is provided several times, the last set value is used.\n")
+	pflag.BoolVarP(&FLGS.UnixSocket, "unix-socket", "us", false, "(HTTP) Connect through this Unix domain socket, instead of using the network.\nIf --unix-socket is provided several times, the last set value is used.")
+	pflag.BoolVarP(&FLGS.InteractiveMode, "it", "it", false, "Toggles console mode for socket connection. Only supported when using '--abstract-unix-socket'.")
 	pflag.Parse()
+	return FLGS.ValidateAll()
 }
 
 func _main(args []string) (help bool, output string) {
@@ -75,7 +74,7 @@ func _main(args []string) (help bool, output string) {
 		return true, ""
 	}
 	url := args[0]
-	instanceCtx := context.WithValue(context.Background(), parser.KeyV, VERBOSE)
+	instanceCtx := context.WithValue(context.Background(), parser.KeyV, FLGS.Verbose)
 	p, err := parser.NewUrl(instanceCtx, url)
 	if err != nil {
 		return false, ""
@@ -87,15 +86,17 @@ func _main(args []string) (help bool, output string) {
 	case http.MethodGet:
 		headers, resp = invoke.Get(instanceCtx, p)
 	case http.MethodPost:
-		headers, resp = invoke.Post(instanceCtx, p, []byte(DATA))
+		headers, resp = invoke.Post(instanceCtx, p, []byte(FLGS.Data))
 	case http.MethodDelete:
 		headers, resp = invoke.Delete(instanceCtx, p)
 	case http.MethodPut:
-		headers, resp = invoke.Put(instanceCtx, p, []byte(DATA))
+		headers, resp = invoke.Put(instanceCtx, p, []byte(FLGS.Data))
+	case config.MethodSocket:
+		headers, resp = invoke.UnixSock(instanceCtx, p, []byte(FLGS.Data))
 	}
 
 	if FLGS.Verbose {
-		output += fmt.Sprintf(ParsedUrlOutput, p.Host(), p.Path(), p.UProtocol(), p.Host()) + "\n"
+		output += fmt.Sprintf(ParsedUrlOutput, p.Host(), p.Path(), p.Protocol().MustUpper(), p.Host()) + "\n"
 		output += fmt.Sprintf(InvokeOutput, headers.Protocol, headers.RespCode, headers.Date, headers.ContentType, headers.ContentLength, headers.Connection, headers.Server, headers.AccessControlAllowOrigin, headers.AccessControlAllowCredentials) + "\n"
 	}
 	output += string(resp)

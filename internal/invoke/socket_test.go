@@ -47,6 +47,7 @@ func (suite *SocketTestSuite) SetupTest() {
 func (suite *SocketTestSuite) TestIsSocket() {
 	i := 1
 	for k, v := range testSockets {
+		fmt.Printf(Order, i)
 		if v {
 			l, err := net.Listen("unix", k)
 			if err != nil {
@@ -61,7 +62,6 @@ func (suite *SocketTestSuite) TestIsSocket() {
 				_ = l.Close()
 			}(l)
 		} else {
-			fmt.Printf(Order, i)
 			tmpFile, err := os.Create(k)
 			if err != nil {
 				log.Fatalf("Error creating file: %s\n", err.Error())
