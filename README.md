@@ -1,3 +1,7 @@
+<blockquote style="border-left: 4px solid yellow; background-color: lightyellow; padding: 10px;">
+  <strong>Warning:</strong> While using Scour, bear in mind that features beyond standard HTTP(S) aren't stable yet. There are particular functionalities that aren't fully robust yet.
+</blockquote>
+
 # Scour
 
 Scour is a command-line tool developed in Go, offering functionalities similar to `curl`. It allows users to make HTTP requests and interact with UNIX sockets.
@@ -31,7 +35,6 @@ Flags:
 - `-X`: Specify the request method (GET, POST, etc.).
 - `-d`: Pass request data.
 - `-H`: Custom request headers.
-- `--abstract-unix-socket` or `-aus`: Use an abstract Unix domain socket.
 
 ### Example
 ```bash
