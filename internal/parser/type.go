@@ -1,11 +1,16 @@
 package parser
 
-type URLS interface {
+import (
+	"context"
+)
+
+type Url interface {
 	String() string
 	Bytes() []byte
-	Protocol() Proctocol
+	Protocol() *Proctocol
 	Host() string
 	Port() string
 	Path() string
 	Err() error
+	Resolve(context.Context)
 }

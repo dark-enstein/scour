@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-func Put(ctx context.Context, url *parser.URL, data []byte) (*RespHeaders, []byte) {
+func Put(ctx context.Context, url *parser.HTTP, data []byte) (*RespHeaders, []byte) {
 	_ = &RespHeaders{}
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()

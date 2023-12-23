@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-func Delete(ctx context.Context, url *parser.URL) (*RespHeaders, []byte) {
+func Delete(ctx context.Context, url *parser.HTTP) (*RespHeaders, []byte) {
 	_ = &RespHeaders{}
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()

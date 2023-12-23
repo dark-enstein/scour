@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	testUrls = map[string]URL{
+	testUrls = map[string]HTTP{
 		"http://eu.httpbin.org/get": {
 			rawString: "http://eu.httpbin.org/get",
 			protocol:  "http",

@@ -43,7 +43,7 @@ var (
 
 // UnixSock establishes a Unix socket connection and initiates a console session.
 // It returns a summary of the session including any errors encountered.
-func UnixSock(ctx context.Context, path string, url *parser.URL, it bool) ([]byte, error) {
+func UnixSock(ctx context.Context, path string, url *parser.HTTP, it bool) ([]byte, error) {
 	var mux sync.Mutex
 	mux.Lock()
 	if !IsSocket(path) {
@@ -87,7 +87,7 @@ func IsSocket(path string) bool {
 // Console represents a console session over a network connection.
 type Console struct {
 	ctx     context.Context
-	url     *parser.URL
+	url     *parser.HTTP
 	it      bool
 	conn    net.Conn
 	recurse recurse
@@ -131,8 +131,8 @@ func (c *Console) Read(msg []byte) (int, error) {
 }
 
 // NewConsole creates a new Console instance with the given context, network connection,
-// URL, and interactive mode flag.
-func NewConsole(ctx context.Context, conn net.Conn, url *parser.URL, it bool) *Console {
+// HTTP, and interactive mode flag.
+func NewConsole(ctx context.Context, conn net.Conn, url *parser.HTTP, it bool) *Console {
 	return &Console{ctx: ctx, url: url, conn: conn, recurse: recurse{limit: DEFAULT_LIMIT}, it: it}
 }
 

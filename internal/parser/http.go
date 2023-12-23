@@ -3,7 +3,6 @@ package parser
 import (
 	"context"
 	"errors"
-	"fmt"
 	"github.com/dark-enstein/scour/internal/config"
 	"log"
 	"regexp"
@@ -22,44 +21,7 @@ var (
 	ErrHostnameInvalid = errors.New("Hostname invalid")
 )
 
-type Protocol interface {
-	String() string
-	MustUpper() string
-	MustLower() string
-}
-
-type Proctocol struct {
-	t   string
-	ver string
-}
-
-func NewProtocol(s string) *Proctocol {
-	switch s {
-	case "http":
-		return &Proctocol{s, config.HTTPVer}
-	case "https":
-		return &Proctocol{s, config.HTTPSVer}
-	}
-	return nil
-}
-
-func (p *Proctocol) String() string {
-	return fmt.Sprintf("%s", p.t)
-}
-
-func (p *Proctocol) Stringln() string {
-	return fmt.Sprintf("%s\f", p.t)
-}
-
-func (p *Proctocol) MustUpper() string {
-	return strings.ToUpper(p.String())
-}
-
-func (p *Proctocol) MustLower() string {
-	return strings.ToLower(p.String())
-}
-
-type URL struct {
+type HTTP struct {
 	rawString string
 	protocol  string
 	host      string
@@ -68,36 +30,36 @@ type URL struct {
 	err       error
 }
 
-func (u *URL) String() string {
+func (u *HTTP) String() string {
 	return u.rawString
 }
 
-func (u *URL) Bytes() []byte {
+func (u *HTTP) Bytes() []byte {
 	return []byte(u.rawString)
 }
 
-func (u *URL) Protocol() *Proctocol {
+func (u *HTTP) Protocol() *Proctocol {
 	return NewProtocol(u.protocol)
 }
 
-func (u *URL) Host() string {
+func (u *HTTP) Host() string {
 	return u.host
 }
 
-func (u *URL) Port() string {
+func (u *HTTP) Port() string {
 	return u.port
 }
 
-func (u *URL) Path() string {
+func (u *HTTP) Path() string {
 	return u.path
 }
 
-func (u *URL) Err() error {
+func (u *HTTP) Err() error {
 	return u.err
 }
 
-func NewUrl(ctx context.Context, url string) (*URL, error) {
-	u := &URL{}
+func NewUrl(ctx context.Context, url string) (*HTTP, error) {
+	u := &HTTP{}
 	split := strings.Split(url, ":")
 	if len(split) < 2 {
 		re := regexp.MustCompile("^([a-zA-Z0-9]+(\\.[a-zA-Z0-9]+)+.*)$")
@@ -112,8 +74,8 @@ func NewUrl(ctx context.Context, url string) (*URL, error) {
 	return u, u.err
 }
 
-// Resolve is the high level api that resolves a raw url string into URL
-func (u *URL) Resolve(ctx context.Context) {
+// Resolve is the high level api that resolves a raw url string into HTTP
+func (u *HTTP) Resolve(ctx context.Context) {
 	v, proc, h, po, pa, err := resolve(ctx, u.rawString)
 	u.err = err
 	if !v && err != nil && ParseLogLevelFromCtx(ctx, KeyV) == true {
