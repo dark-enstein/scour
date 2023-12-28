@@ -31,18 +31,27 @@ func Delete(ctx context.Context, url *parser.HTTP) (*RespHeaders, []byte) {
 		_ = Body.Close()
 	}(resp.Body)
 	tDur := time.Since(t1)
-	//fmt.Println(resp)
 
 	respH := newHeaders(resp.Status, fmt.Sprintf("%s/1.1", url.Protocol().String()), resp.Header.Get("Date"), resp.Header.Get("Content-Type"), resp.Header.Get("Content-Length"), resp.Header.Get("Connection"), resp.Header.Get("Server"), resp.Header.Get("Access-Control-Allow-Origin"), resp.Header.Get("Access-Control-Allow-Credentials"))
 	if parser.ParseLogLevelFromCtx(ctx, parser.KeyV) == true {
 		log.Printf("Response: %v\n", respH)
 	}
 
-	//cl, _ := strconv.Atoi(resp.Header.Get("Content-Length"))
-	var res = make([]byte, 1024)
-	i, err := resp.Body.Read(res)
+	var buf bytes.Buffer
+	tmp := make([]byte, READ_PAGESIZE)
+	for {
+		n, err := resp.Body.Read(tmp)
+		if err != nil {
+			if err != io.EOF {
+				fmt.Println("Error receiving response:", err.Error())
+				buf.Write(tmp[:n])
+			}
+			break
+		}
+		buf.Write(tmp[:n])
+	}
 	if parser.ParseLogLevelFromCtx(ctx, parser.KeyV) == true {
-		log.Printf("Buffer length: %d\n", i)
+		log.Printf("Buffer length: %d\n", buf.Len())
 	}
 	if err != nil {
 		log.Printf("Error encountered decoding response body: %s\n", err.Error())
@@ -50,5 +59,5 @@ func Delete(ctx context.Context, url *parser.HTTP) (*RespHeaders, []byte) {
 	if parser.ParseLogLevelFromCtx(ctx, parser.KeyV) == true {
 		log.Printf("Time taken: %s\n", tDur.String())
 	}
-	return respH, res
+	return respH, buf.Bytes()
 }
