@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/dark-enstein/scour/internal/parser"
+	"github.com/dark-enstein/scour/internal/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"log"
@@ -92,7 +93,7 @@ func (suite *SocketTestSuite) TestIsSocket() {
 			fileInfo, _ := os.Stat(k)
 			log.Printf("FilePath: %s\n", k)
 			log.Printf("Filemode: %s\n", fileInfo.Mode().Type())
-			what := IsSocket(k)
+			what := utils.IsSocket(k)
 			assert.Equal(suite.T(), v, what)
 			defer func(l net.Listener) {
 				_ = l.Close()
@@ -107,7 +108,7 @@ func (suite *SocketTestSuite) TestIsSocket() {
 			log.Printf("FilePath: %s\n", filePath)
 			log.Printf("Filemode: %s\n", fileInfo.Mode().Type())
 
-			what := IsSocket(filePath)
+			what := utils.IsSocket(filePath)
 			assert.Equal(suite.T(), v, what)
 			// Close and remove the temp file, so we can use its name for the socket
 			_ = tmpFile.Close()

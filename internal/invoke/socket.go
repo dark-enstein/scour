@@ -7,9 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"github.com/dark-enstein/scour/internal/parser"
+	"github.com/dark-enstein/scour/internal/utils"
 	"github.com/google/uuid"
 	"io"
-	"io/fs"
 	"log"
 	"net"
 	"os"
@@ -46,7 +46,7 @@ var (
 func UnixSock(ctx context.Context, path string, url *parser.HTTP, it bool) ([]byte, error) {
 	var mux sync.Mutex
 	mux.Lock()
-	if !IsSocket(path) {
+	if !utils.IsSocket(path) {
 		return []byte{}, ERR_PATHNOTSOCKET
 	}
 	mux.Unlock()
@@ -73,15 +73,6 @@ func flatten(b [][]byte, delim []byte) (bflat []byte) {
 		bflat = append(bflat, delim...)
 	}
 	return
-}
-
-// IsSocket checks if the provided path is a Unix socket.
-func IsSocket(path string) bool {
-	fileInfo, err := os.Stat(path)
-	if err != nil {
-		log.Printf("Error opening file: %s\n", err.Error())
-	}
-	return fileInfo.Mode().Type() == fs.ModeSocket
 }
 
 // Console represents a console session over a network connection.

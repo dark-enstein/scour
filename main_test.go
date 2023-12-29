@@ -3,10 +3,6 @@ package main
 import (
 	"fmt"
 	"github.com/stretchr/testify/assert"
-	"log"
-	"os"
-	"os/exec"
-	"strings"
 	"testing"
 )
 
@@ -33,6 +29,7 @@ connecting to eu.httpbin.org
 Test Order: %d
 -------------------------------
 `
+	VERBOSE = true
 )
 
 func TestScour(t *testing.T) {
@@ -53,47 +50,3 @@ func TestScour(t *testing.T) {
 }
 
 func TestPrettyPrint(t *testing.T) {}
-
-func _gocmd(s string) (string, int, string, error) {
-	sArr := strings.Split(s, " ")
-	cmd := exec.Command("/opt/homebrew/opt/go/libexec/bin/go", sArr...)
-	output, err := cmd.Output()
-	return cmd.String(), 0, string(output), err
-}
-
-func _cmd(s string, a ...string) (string, int, string, error) {
-	cmd := exec.Command(s, a...)
-	output, err := cmd.Output()
-	return cmd.String(), 0, string(output), err
-}
-
-func _build() int {
-	_, _, out, err := _cmd("cp", "main.go main_cp.go")
-	if err != nil {
-		log.Println("error with copying file:", err)
-	}
-	log.Println("copy output:", out)
-	str, code, output, err := _gocmd("build main_cp.go -o scour_test")
-	if err != nil {
-		log.Printf("Command %s failed with error: %s\n", str, err)
-		return code
-	}
-	log.Printf("Output: %s\n", output)
-	return code
-}
-
-func TestBuild(t *testing.T) {
-	code := _build()
-	if code > 0 {
-		_, err := os.Stat(testBin)
-		if os.IsExist(err) {
-			log.Println("bin exists despite build command says its unhealthy")
-		}
-	}
-	_, err := os.Stat(testBin)
-	if os.IsNotExist(err) {
-		_, _, out, _ := _cmd("ls")
-		fmt.Println(out)
-		log.Println("bin does not exists despite build command successfull")
-	}
-}
