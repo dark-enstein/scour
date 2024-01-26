@@ -2,12 +2,12 @@ package invoke
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"github.com/dark-enstein/scour/internal/parser"
 	"github.com/dark-enstein/scour/internal/utils"
+	"github.com/fatih/color"
 	"github.com/google/uuid"
 	"io"
 	"log"
@@ -44,25 +44,28 @@ var (
 
 // UnixSock establishes a Unix socket connection and initiates a console session.
 // It returns a summary of the session including any errors encountered.
-func UnixSock(ctx context.Context, path string, url *parser.HTTP, it bool) ([]byte, error) {
+func UnixSock(ctx context.Context, url parser.Url, it bool) ([]byte, error) {
 	var mux sync.Mutex
 	mux.Lock()
-	if !utils.IsSocket(path) {
+	if isSoc, err := utils.IsSocket(url.Path()); !isSoc || err != nil {
 		return []byte{}, ERR_PATHNOTSOCKET
 	}
 	mux.Unlock()
-	conn, err := net.Dial("unix", path)
+	conn, err := net.Dial("unix", url.Path())
 	defer func(conn net.Conn) {
-		_ = conn.Close()
+		err = conn.Close()
+		if err != nil {
+			log.Println("error encountered closing socket connection:", err)
+		}
 	}(conn)
 	if err != nil {
-		log.Printf("Error connecting to unix socket %s: %s\n", path, err.Error())
+		log.Printf("Error connecting to unix socket %s: %s\n", url.Path(), err.Error())
 		return nil, err
 	}
 
 	id, _, communication, err := NewConsole(ctx, conn, url, it).Enter()
 	flat := flatten(communication, []byte("\n"))
-	fmt.Printf(UNIXSUMMARY+"\n", id, flat)
+	fmt.Printf(UNIXSUMMARY, id, flat, err.Error())
 	return flat, err
 }
 
@@ -78,11 +81,12 @@ func flatten(b [][]byte, delim []byte) (bflat []byte) {
 
 // Console represents a console session over a network connection.
 type Console struct {
-	ctx     context.Context
-	url     *parser.HTTP
-	it      bool
-	conn    net.Conn
-	recurse recurse
+	ctx      context.Context
+	url      parser.Url
+	resource []byte
+	it       bool
+	conn     net.Conn
+	recurse  recurse
 	sync.Mutex
 }
 
@@ -124,8 +128,8 @@ func (c *Console) Read(msg []byte) (int, error) {
 
 // NewConsole creates a new Console instance with the given context, network connection,
 // HTTP, and interactive mode flag.
-func NewConsole(ctx context.Context, conn net.Conn, url *parser.HTTP, it bool) *Console {
-	return &Console{ctx: ctx, url: url, conn: conn, recurse: recurse{limit: DEFAULT_LIMIT}, it: it}
+func NewConsole(ctx context.Context, conn net.Conn, url parser.Url, it bool) *Console {
+	return &Console{ctx: ctx, url: url, resource: []byte(url.Resource()), conn: conn, recurse: recurse{limit: DEFAULT_LIMIT}, it: it}
 }
 
 // Enter starts the console session and handles communication based on the interactive mode.
@@ -150,7 +154,7 @@ func (c *Console) Enter() (sessID string, code int, communication [][]byte, err 
 			c.Lock()
 			ctx, cancel := context.WithTimeout(c.ctx, CONN_TIMEOUT*time.Second)
 			defer cancel()
-			_, errSend := c.socSend(ctx, lineReq)
+			_, errSend := c.socSend(ctx)
 			err = fmt.Errorf("%s: %w", err, errSend)
 			if err != nil {
 				break cursor
@@ -167,13 +171,14 @@ func (c *Console) Enter() (sessID string, code int, communication [][]byte, err 
 		c.Lock()
 		ctx, cancel := context.WithTimeout(c.ctx, CONN_TIMEOUT*time.Second)
 		defer cancel()
-		_, err := c.socSend(ctx, c.url.Bytes())
+		//path, resource := c.url.Path(), c.url.Resource()
+		_, err := c.socSend(ctx)
 		communication = append(communication, c.url.Bytes())
 		if err != nil {
 			return sessUUID, 1, communication, err
 		}
-		respBuf, err2 := c.socRcv(ctx)
-		err = fmt.Errorf("%s: %w", err, err2)
+		respBuf, err := c.socRcv(ctx)
+		err = fmt.Errorf("%s", err)
 		c.Unlock()
 		communication = append(communication, respBuf)
 	}
@@ -184,35 +189,26 @@ func (c *Console) Enter() (sessID string, code int, communication [][]byte, err 
 // socRcv handles receiving data from the network connection.
 // It returns the received data and any error encountered.
 func (c *Console) socRcv(ctx context.Context) ([]byte, error) {
-	fmt.Printf("< rcvin:\n")
-	var buf bytes.Buffer
-	tmp := make([]byte, RCV_PAGESIZE)
-	for {
-		n, err := c.conn.Read(tmp)
-		if err != nil {
-			if err != io.EOF {
-				fmt.Println("Error receiving response:", err.Error())
-				buf.Write(tmp[:n])
-				return buf.Bytes(), err
-			}
-			break
-		}
-		buf.Write(tmp[:n])
+	color.Green("<< rcvin:\n")
+	stream, err := io.ReadAll(c.conn)
+	if err != nil {
+		log.Println("error encountered from socker connection:", err.Error())
+		return nil, err
 	}
-	return buf.Bytes(), nil
+	return stream, nil
 }
 
 // socSend handles sending data over the network connection.
 // It returns the number of bytes sent and any error encountered.
-func (c *Console) socSend(ctx context.Context, lineReq []byte) (int, error) {
-	fmt.Printf("> %s:", string(lineReq))
-	_, err := c.Write(lineReq)
+func (c *Console) socSend(ctx context.Context) (int, error) {
+	color.Yellow(">> sending to %s: %s\n", c.url.Path(), c.resource)
+	_, err := c.Write([]byte(c.resource))
 	if err != nil {
 		fmt.Printf("&> Error sending message: %s\n", err.Error())
-		if c.it && retrySend(string(lineReq)) {
+		if c.it && retrySend(string(c.resource)) {
 			if c.recurse.Can() {
 				c.recurse.Iter()
-				_, err = c.socSend(ctx, lineReq)
+				_, err = c.socSend(ctx)
 				if err != nil {
 					return -1, fmt.Errorf("err: %w", err)
 				}

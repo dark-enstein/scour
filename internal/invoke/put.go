@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/dark-enstein/scour/internal/parser"
+	http2 "github.com/dark-enstein/scour/internal/parser/httparser"
 	"io"
 	"log"
 	"net/http"
@@ -14,7 +15,7 @@ import (
 // Put sends a PUT HTTP request to the specified URL with the provided data.
 // It manages request timeouts using context, logs relevant information,
 // and returns the response headers and body as a byte slice.
-func Put(ctx context.Context, url *parser.HTTP, data []byte) (*RespHeaders, []byte) {
+func Put(ctx context.Context, url parser.Url, data []byte) (*RespHeaders, []byte, error) {
 	_ = &RespHeaders{}
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -28,7 +29,7 @@ func Put(ctx context.Context, url *parser.HTTP, data []byte) (*RespHeaders, []by
 	resp, err := cli.Do(req)
 	if err != nil {
 		log.Printf("PUT request failed with: %s\n", err.Error())
-		return nil, nil
+		return nil, nil, err
 	}
 	defer func(Body io.ReadCloser) {
 		_ = Body.Close()
@@ -37,21 +38,22 @@ func Put(ctx context.Context, url *parser.HTTP, data []byte) (*RespHeaders, []by
 	//fmt.Println(resp)
 
 	respH := newHeaders(resp.Status, fmt.Sprintf("%s/1.1", url.Protocol().String()), resp.Header.Get("Date"), resp.Header.Get("Content-Type"), resp.Header.Get("Content-Length"), resp.Header.Get("Connection"), resp.Header.Get("Server"), resp.Header.Get("Access-Control-Allow-Origin"), resp.Header.Get("Access-Control-Allow-Credentials"))
-	if parser.ParseLogLevelFromCtx(ctx, parser.KeyV) == true {
+	if http2.ParseLogLevelFromCtx(ctx, http2.KeyV) == true {
 		log.Printf("Response: %v\n", respH)
 	}
 
 	//cl, _ := strconv.Atoi(resp.Header.Get("Content-Length"))
 	var res = make([]byte, 1024)
 	i, err := resp.Body.Read(res)
-	if parser.ParseLogLevelFromCtx(ctx, parser.KeyV) == true {
+	if http2.ParseLogLevelFromCtx(ctx, http2.KeyV) == true {
 		log.Printf("Buffer length: %d\n", i)
 	}
 	if err != nil {
 		log.Printf("Error encountered decoding response body: %s\n", err.Error())
+		return nil, nil, err
 	}
-	if parser.ParseLogLevelFromCtx(ctx, parser.KeyV) == true {
+	if http2.ParseLogLevelFromCtx(ctx, http2.KeyV) == true {
 		log.Printf("Time taken: %s\n", tDur.String())
 	}
-	return respH, res
+	return respH, res, nil
 }

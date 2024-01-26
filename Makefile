@@ -16,22 +16,23 @@ build:
 	@echo $(REFVER)
 	@CGO_ENABLED=0 go build -v --o $(APPLICATION_FILEPATH) main.go
 
+fmt:
+	@go fmt
+
 clean:
 	@rm -rf ./build
 
-run:
+run: build
 	@echo "Running with args: $(ARGS)"
-	@rm -rf $(APPLICATION_DIR)
-	@go build -o $(APPLICATION_FILEPATH)
 	@./build/scour $(ARGS)
 
 docker-build:
 	docker build . -t $(APPLICATION_NAME):$(REFVER)
 
-docker-tag:
+docker-tag: docker-build
 	@docker tag $(APPLICATION_NAME):$(REFVER) brownbarg/$(APPLICATION_NAME):$(SEMVER)
 
-docker-run-it:
+docker-run-it: docker-build docker-tag
 	docker run -it $(APPLICATION_NAME):$(REFVER) /bin/sh
 
 docker-run:

@@ -1,4 +1,4 @@
-package parser
+package socketparser
 
 import (
 	"context"
@@ -51,13 +51,13 @@ func (suite *SocketParserTestSuite) SetupTest() {
 func (suite *SocketParserTestSuite) TestIsValid() {
 	ctx := context.Background()
 	i := 1
-	for k, v := range testSocketURLMap {
+	for k, _ := range testSocketURLMap {
 		fmt.Printf(Order, i)
 		log.Printf("URL: %s\n", k)
-		sckt := NewSocket(k)
-		b, _ := sckt.IsValid(ctx)
-		//suite.Assert().NoErrorf(err, "error occured: %s", err.Error())
-		suite.Assert().Equalf(v, b, "expected %v, but got %v", v, b)
+		sckt := NewSocket(ctx, k)
+		err := sckt.IsValid()
+		suite.Assert().NoErrorf(err, "error occured: %s", err.Error())
+		//suite.Assert().Equalf(v, b, "expected %v, but got %v", v, b)
 		i++
 	}
 }

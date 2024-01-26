@@ -6,10 +6,17 @@ import (
 	"github.com/dark-enstein/scour/internal/config"
 	"github.com/dark-enstein/scour/internal/invoke"
 	"github.com/dark-enstein/scour/internal/parser"
+	"github.com/dark-enstein/scour/internal/parser/httparser"
+	"github.com/dark-enstein/scour/internal/parser/socketparser"
 	"github.com/spf13/pflag"
 	"log"
 	"net/http"
 	"os"
+)
+
+const (
+	SOCKET_TEST = iota + 1
+	HTTP_TEST
 )
 
 var (
@@ -48,13 +55,33 @@ connecting to %s
 )
 
 func main() {
-	if err := initFlags(); err != nil {
-		log.Println(fmt.Errorf("errors encountered while validating flags: %w\n%s", err, config.Help))
-		os.Exit(1)
+	// setDebug flag is used for toggling debug mode on or off
+	var setDebug = true
+	var help bool
+	var out string
+
+	// control flow for when Goland IDE is running in debug mode or not
+	if setDebug {
+		FLGS = debug(SOCKET_TEST, FLGS)
+		fmt.Printf(ScourASCII, FLGS.Verbose)
+		err := FLGS.ValidateAll()
+		if err != nil {
+			log.Println(fmt.Errorf("errors encountered while validating flags: %w\n%s", err, config.Help))
+			pflag.PrintDefaults()
+			os.Exit(1)
+		}
+		help, out = _main([]string{"t.sock http:/images/json"})
+	} else {
+		if err := initFlags(); err != nil {
+			log.Println(fmt.Errorf("errors encountered while validating flags: %w\n%s", err, config.Help))
+			pflag.PrintDefaults()
+			os.Exit(1)
+		}
+		fmt.Printf(ScourASCII, FLGS.Verbose)
+		fmt.Println("all args:", pflag.Args())
+		help, out = _main([]string{fmt.Sprintf("%s %s", pflag.Args()[0], pflag.Args()[1])})
 	}
-	fmt.Printf(ScourASCII, FLGS.Verbose)
-	def, out := _main(pflag.Args())
-	if def {
+	if help {
 		pflag.PrintDefaults()
 	}
 	fmt.Println(out)
@@ -67,8 +94,8 @@ func initFlags() error {
 	pflag.StringVarP(&FLGS.Data, "data", "d", "", "Pass request data.")
 	pflag.StringVarP(&FLGS.Headers, "Header", "H", "", "Pass in custom request headers.")
 	//pflag.BoolVarP(&FLGS.UnixSocket, "abstract-unix-socket", "aus", false, "(HTTP) Connect through an abstract Unix domain socket, instead of using the network. Note: netstat shows the path of an abstract socket prefixed with '@', however the <path> argument should not have this leading character.\nIf --abstract-unix-socket is provided several times, the last set value is used.\n")
-	pflag.BoolVarP(&FLGS.UnixSocket, "unix-socket", "us", false, "(HTTP) Connect through this Unix domain socket, instead of using the network.\nIf --unix-socket is provided several times, the last set value is used.")
-	pflag.BoolVarP(&FLGS.InteractiveMode, "it", "it", false, "Toggles console mode for socket connection. Only supported when using '--abstract-unix-socket'.")
+	pflag.BoolVarP(&FLGS.UnixSocket, "unix-socket", "u", false, "(HTTP) Connect through this Unix domain socket, instead of using the network.\nIf --unix-socket is provided several times, the last set value is used.")
+	pflag.BoolVarP(&FLGS.InteractiveMode, "it", "i", false, "Toggles console mode for socket connection. Only supported when using '--abstract-unix-socket'.")
 	pflag.Parse()
 	return FLGS.ValidateAll()
 }
@@ -76,13 +103,25 @@ func initFlags() error {
 // _main is the lower level main function
 func _main(args []string) (help bool, output string) {
 	if len(args) == 0 {
-		log.Println("Please pass at least one argument in the format: scour [--X|--v] <url>")
+		if FLGS.Method == config.MethodSocket {
+			log.Println("Please pass at least one argument in the format: scour [--X|--v] <socket-path> <url>")
+		} else {
+			log.Println("Please pass at least one argument in the format: scour [--X|--v] <url>")
+		}
+		return true, ""
+	} else if len(args) > 1 {
+		if FLGS.Method == config.MethodSocket {
+			log.Println("Please pass at least one argument in the format: scour [--X|--v] <socket-path> <url>")
+		} else {
+			log.Println("Too many arguments passed in. Only one argument required: scour [--X|--v] <url>")
+		}
 		return true, ""
 	}
-	url := args[0]
-	instanceCtx := context.WithValue(context.Background(), parser.KeyV, FLGS.Verbose)
-	p, err := parser.NewUrl(instanceCtx, url)
+	instanceCtx := context.WithValue(context.Background(), httparser.KeyV, FLGS.Verbose)
+
+	url, err := parseUrl(instanceCtx, args[0], FLGS)
 	if err != nil {
+		log.Println(err)
 		return false, ""
 	}
 	var headers *invoke.RespHeaders
@@ -90,21 +129,69 @@ func _main(args []string) (help bool, output string) {
 
 	switch FLGS.Method {
 	case http.MethodGet:
-		headers, resp = invoke.Get(instanceCtx, p)
+		headers, resp, err = invoke.Get(instanceCtx, url)
 	case http.MethodPost:
-		headers, resp = invoke.Post(instanceCtx, p, []byte(FLGS.Data))
+		headers, resp, err = invoke.Post(instanceCtx, url, []byte(FLGS.Data))
 	case http.MethodDelete:
-		headers, resp = invoke.Delete(instanceCtx, p)
+		headers, resp, err = invoke.Delete(instanceCtx, url)
 	case http.MethodPut:
-		headers, resp = invoke.Put(instanceCtx, p, []byte(FLGS.Data))
-		//case config.MethodSocket:
-		//	headers, resp = invoke.UnixSock(instanceCtx, p, []byte(FLGS.Data))
+		headers, resp, err = invoke.Put(instanceCtx, url, []byte(FLGS.Data))
+	case config.MethodSocket:
+		resp, err = invoke.UnixSock(instanceCtx, url, FLGS.InteractiveMode)
 	}
 
 	if FLGS.Verbose {
-		output += fmt.Sprintf(ParsedUrlOutput, p.Host(), p.Path(), p.Protocol().MustUpper(), p.Host()) + "\n"
+		output += fmt.Sprintf(ParsedUrlOutput, url.Host(), url.Path(), url.Protocol().MustUpper(), url.Host()) + "\n"
 		output += fmt.Sprintf(InvokeOutput, headers.Protocol, headers.RespCode, headers.Date, headers.ContentType, headers.ContentLength, headers.Connection, headers.Server, headers.AccessControlAllowOrigin, headers.AccessControlAllowCredentials) + "\n"
 	}
 	output += string(resp)
 	return
+}
+
+// parseUrl parses the right url from the request
+func parseUrl(ctx context.Context, urlString string, flag *config.Flags) (parser.Url, error) {
+	if len(urlString) < 1 {
+		return nil, fmt.Errorf("url string empty")
+	}
+	switch flag.Resolve() {
+	case config.MODE_HTTP:
+		url, err := httparser.NewUrl(ctx, urlString)
+		if err != nil {
+			return nil, err
+		}
+		return url, nil
+	case config.MODE_SOCKET:
+		socket := socketparser.NewSocket(ctx, urlString)
+		err := socket.Err()
+		if err != nil {
+			return nil, err
+		}
+		return socket, nil
+	}
+	return nil, nil
+}
+
+// debug sets some default flag values for Goland debugging
+func debug(debugType int, flag *config.Flags) *config.Flags {
+	switch debugType {
+	case SOCKET_TEST:
+		flag = &config.Flags{
+			Verbose:         true,
+			Method:          http.MethodGet,
+			Data:            "",
+			Headers:         "",
+			UnixSocket:      true,
+			InteractiveMode: false,
+		}
+	case HTTP_TEST:
+		flag = &config.Flags{
+			Verbose:         true,
+			Method:          "GET",
+			Data:            "",
+			Headers:         "accept: application/json",
+			UnixSocket:      false,
+			InteractiveMode: false,
+		}
+	}
+	return flag
 }
