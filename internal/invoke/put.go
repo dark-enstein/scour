@@ -38,11 +38,14 @@ func Put(ctx context.Context, url *parser.HTTP, data []byte) (*RespHeaders, []by
 		log.Printf("Response: %v\n", respH)
 	}
 
-	//cl, _ := strconv.Atoi(resp.Header.Get("Content-Length"))
-	var res = make([]byte, 1024)
-	i, err := resp.Body.Read(res)
+	responseStream, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Println("Error receiving response:", err.Error())
+		return nil, nil
+	}
+
 	if parser.ParseLogLevelFromCtx(ctx, parser.KeyV) == true {
-		log.Printf("Buffer length: %d\n", i)
+		log.Printf("Buffer length: %d\n", len(responseStream))
 	}
 	if err != nil {
 		log.Printf("Error encountered decoding response body: %s\n", err.Error())
@@ -50,5 +53,5 @@ func Put(ctx context.Context, url *parser.HTTP, data []byte) (*RespHeaders, []by
 	if parser.ParseLogLevelFromCtx(ctx, parser.KeyV) == true {
 		log.Printf("Time taken: %s\n", tDur.String())
 	}
-	return respH, res
+	return respH, responseStream
 }

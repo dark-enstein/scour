@@ -37,21 +37,14 @@ func Delete(ctx context.Context, url *parser.HTTP) (*RespHeaders, []byte) {
 		log.Printf("Response: %v\n", respH)
 	}
 
-	var buf bytes.Buffer
-	tmp := make([]byte, READ_PAGESIZE)
-	for {
-		n, err := resp.Body.Read(tmp)
-		if err != nil {
-			if err != io.EOF {
-				fmt.Println("Error receiving response:", err.Error())
-				buf.Write(tmp[:n])
-			}
-			break
-		}
-		buf.Write(tmp[:n])
+	responseStream, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Println("Error receiving response:", err.Error())
+		return nil, nil
 	}
+
 	if parser.ParseLogLevelFromCtx(ctx, parser.KeyV) == true {
-		log.Printf("Buffer length: %d\n", buf.Len())
+		log.Printf("Buffer length: %d\n", len(responseStream))
 	}
 	if err != nil {
 		log.Printf("Error encountered decoding response body: %s\n", err.Error())
@@ -59,5 +52,5 @@ func Delete(ctx context.Context, url *parser.HTTP) (*RespHeaders, []byte) {
 	if parser.ParseLogLevelFromCtx(ctx, parser.KeyV) == true {
 		log.Printf("Time taken: %s\n", tDur.String())
 	}
-	return respH, buf.Bytes()
+	return respH, responseStream
 }

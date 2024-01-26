@@ -11,11 +11,11 @@ import (
 	"time"
 )
 
-func Post(ctx context.Context, url *parser.HTTP, data []byte) (*RespHeaders, []byte) {
+func Patch(ctx context.Context, url *parser.HTTP, data []byte) (*RespHeaders, []byte) {
 	_ = &RespHeaders{}
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url.String(), bytes.NewBuffer(data))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPatch, url.String(), bytes.NewBuffer(data))
 	if err != nil {
 		log.Printf("Error creating request object: %s\n", err.Error())
 	}
