@@ -35,7 +35,7 @@ docker-run-it:
 	docker run -it $(APPLICATION_NAME):$(REFVER) /bin/sh
 
 docker-run:
-	docker run $(APPLICATION_NAME):$(REFVER) -v https://www.google.com
+	docker run $(APPLICATION_NAME):$(REFVER) scour -X GET "https://httpbin.org/get" -H "accept: application/json" -v
 
 docker-push: docker-tag
 	@echo $$DOCKER_PASSWORD | docker login -u $(DOCKER_USERNAME) --password-stdin
