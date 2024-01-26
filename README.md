@@ -1,5 +1,5 @@
 <blockquote style="border-left: 4px solid yellow; background-color: lightyellow; padding: 10px;">
-  <strong>Warning:</strong> While using Scour, bear in mind that features beyond standard HTTP(S) aren't stable yet. There are particular functionalities that aren't fully robust yet.
+  <strong>Warning:</strong> MAINTENANCE
 </blockquote>
 
 # Scour

@@ -13,7 +13,9 @@ import (
 )
 
 var (
-	FLGS       = config.NewFlags()
+	// FLGS holds the flags values for every iteration
+	FLGS = config.NewFlags()
+	// ScourASCII holds the header output of Scour. TODO: This should be refactored to using go:embed via text files
 	ScourASCII = `
  _______  _______  _______  __   __  ______   
 |       ||       ||       ||  | |  ||    _ |  
@@ -25,12 +27,14 @@ var (
 
 Debug = %v
 `
+	// ParsedUrlOutput holds the template for parsing url information in verbose mode. TODO: This should be refactored to using go:embed via text files
 	ParsedUrlOutput = `
 connecting to %s
 > GET /%s %s/1.1
 > Host: %s
 > Accept: */
 `
+	// InvokeOutput returns the metadata from the response. Activated in verbose mode. TODO: This should be refactored to using go:embed via text files.
 	InvokeOutput = `
 < %s/1.1 %s
 < Date: %s
@@ -56,6 +60,7 @@ func main() {
 	fmt.Println(out)
 }
 
+// initFlags parses in cmdline flags, and does validation on them
 func initFlags() error {
 	pflag.BoolVarP(&FLGS.Verbose, "verbose", "v", false, "Turn on/off debug mode.")
 	pflag.StringVarP(&FLGS.Method, "X", "X", http.MethodGet, "Set request method.")
@@ -68,6 +73,7 @@ func initFlags() error {
 	return FLGS.ValidateAll()
 }
 
+// _main is the lower level main function
 func _main(args []string) (help bool, output string) {
 	if len(args) == 0 {
 		log.Println("Please pass at least one argument in the format: scour [--X|--v] <url>")

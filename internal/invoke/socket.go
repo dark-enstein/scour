@@ -18,12 +18,13 @@ import (
 )
 
 const (
-	CONSOLE_CLEAR = iota
-	CONSOLE_ERR
-	CONSOLE_EXIT
+	CONSOLE_CLEAR = iota // Represents a command to clear the console.
+	CONSOLE_ERR          // Represents a console error.
+	CONSOLE_EXIT         // Represents a command to exit the console.
 )
 
 var (
+	// Format string for Unix socket session summary.
 	UNIXSUMMARY = `
 Session summary
 Session ID: %s
@@ -32,13 +33,13 @@ All Socket Communications:
 Errors:
 %s
 `
-	DEFAULT_LIMIT = 5
-	RCV_PAGESIZE  = 1024
-	CONN_TIMEOUT  = time.Duration(2)
+	DEFAULT_LIMIT = 5                // Default limit for iterative operations.
+	RCV_PAGESIZE  = 1024             // Default page size for receiving data.
+	CONN_TIMEOUT  = time.Duration(2) // Default connection timeout duration.
 )
 
 var (
-	ERR_PATHNOTSOCKET = errors.New("file path not a socket")
+	ERR_PATHNOTSOCKET = errors.New("file path not a socket") // Error when the provided path is not a socket.
 )
 
 // UnixSock establishes a Unix socket connection and initiates a console session.

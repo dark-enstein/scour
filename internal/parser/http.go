@@ -9,55 +9,63 @@ import (
 	"strings"
 )
 
+// Key and default values used in the package.
 var (
-	KeyV = "VERBOSE"
+	KeyV               = "VERBOSE"                            // Key for checking verbose logging in context.
+	DefaultHTTPPort    = "80"                                 // Default port for HTTP.
+	DefaultHTTPSPort   = "443"                                // Default port for HTTPS.
+	ErrIPV6            = "IPv6 Address detected: Unsupported" // Error message for IPv6.
+	ErrIPv6tError      = errors.New(ErrIPV6)                  // Error for unsupported IPv6 addresses.
+	ErrHostnameInvalid = errors.New("Hostname invalid")       // Error for invalid hostname.
 )
 
-var (
-	DefaultHTTPPort    = "80"
-	DefaultHTTPSPort   = "443"
-	ErrIPV6            = "IPv6 Address detected: Unsupported"
-	ErrIPv6tError      = errors.New(ErrIPV6)
-	ErrHostnameInvalid = errors.New("Hostname invalid")
-)
-
+// HTTP struct represents the components of a URL.
 type HTTP struct {
-	rawString string
-	protocol  string
-	host      string
-	port      string
-	path      string
-	err       error
+	rawString string // The original URL string.
+	protocol  string // The protocol (http/https) used.
+	host      string // The hostname or IP address.
+	port      string // The port number.
+	path      string // The path component of the URL.
+	err       error  // Any error encountered during URL parsing.
 }
 
+// String method returns the raw URL string.
 func (u *HTTP) String() string {
 	return u.rawString
 }
 
+// Bytes method returns the raw URL as a byte slice.
 func (u *HTTP) Bytes() []byte {
 	return []byte(u.rawString)
 }
 
+// Protocol method returns a new Protocol struct representing the URL's protocol.
 func (u *HTTP) Protocol() *Proctocol {
 	return NewProtocol(u.protocol)
 }
 
+// Host method returns the URL's host component.
 func (u *HTTP) Host() string {
 	return u.host
 }
 
+// Port method returns the URL's port component.
 func (u *HTTP) Port() string {
 	return u.port
 }
 
+// Path method returns the URL's path component.
 func (u *HTTP) Path() string {
 	return u.path
 }
 
+// Err method returns any error encountered during URL parsing.
 func (u *HTTP) Err() error {
 	return u.err
 }
 
+// NewUrl creates a new HTTP struct from a raw URL string.
+// It resolves the URL components and handles default values for protocol and port.
 func NewUrl(ctx context.Context, url string) (*HTTP, error) {
 	u := &HTTP{}
 	split := strings.Split(url, ":")
@@ -74,7 +82,7 @@ func NewUrl(ctx context.Context, url string) (*HTTP, error) {
 	return u, u.err
 }
 
-// Resolve is the high level api that resolves a raw url string into HTTP
+// Resolve resolves a raw URL string into its components and updates the HTTP struct.
 func (u *HTTP) Resolve(ctx context.Context) {
 	v, proc, h, po, pa, err := resolve(ctx, u.rawString)
 	u.err = err
@@ -89,7 +97,7 @@ func (u *HTTP) Resolve(ctx context.Context) {
 }
 
 // expectation contract: http://eu.httpbin.org:80/get || http://eu.httpbin.org/get
-// resolve does the low-level resolution of url string into it's component part
+// resolve does the low-level resolution of a URL string into its component parts.
 func resolve(ctx context.Context, u string) (valid bool, protocol, host, port, path string, err error) {
 	urlColSplit := strings.Split(u, ":")
 	switch {
@@ -122,6 +130,7 @@ func resolve(ctx context.Context, u string) (valid bool, protocol, host, port, p
 	return
 }
 
+// ParseLogLevelFromCtx extracts the verbose logging setting from a context.
 func ParseLogLevelFromCtx(ctx context.Context, k string) bool {
 	return ctx.Value(k).(bool)
 }
