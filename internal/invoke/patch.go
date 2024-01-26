@@ -11,6 +11,8 @@ import (
 	"time"
 )
 
+// Patch sends a PATCH HTTP request to the specified URL with the provided data.
+// It returns the response headers and body.
 func Patch(ctx context.Context, url *parser.HTTP, data []byte) (*RespHeaders, []byte) {
 	_ = &RespHeaders{}
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
