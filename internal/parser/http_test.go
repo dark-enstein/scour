@@ -8,7 +8,11 @@ import (
 )
 
 var (
+	// testUrls is a map containing test cases for the URL parser.
+	// Each entry maps a raw URL string to an expected HTTP struct.
 	testUrls = map[string]HTTP{
+		// Test cases with various URL formats and expected outcomes.
+		// Includes both valid URLs and URLs expected to produce errors (like IPv6 addresses).
 		"http://eu.httpbin.org/get": {
 			rawString: "http://eu.httpbin.org/get",
 			protocol:  "http",
@@ -52,6 +56,8 @@ var (
 	}
 )
 
+// TestParser is a test function for the NewUrl function in the parser package.
+// It iterates over the testUrls, parsing each one and comparing the result to the expected HTTP struct.
 func TestParser(t *testing.T) {
 	i := 1
 	for url, expected := range testUrls {

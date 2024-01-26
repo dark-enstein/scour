@@ -11,6 +11,9 @@ import (
 	"time"
 )
 
+// Get sends a GET HTTP request to the specified URL.
+// It manages request timeouts using context, logs relevant information,
+// and returns the response headers and body as a byte slice.
 func Get(ctx context.Context, url *parser.HTTP) (*RespHeaders, []byte) {
 	_ = &RespHeaders{}
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)

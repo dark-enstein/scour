@@ -31,19 +31,28 @@ var (
 `
 )
 
+// Flags struct holds the flag values passed in via the commandline to Scour.
 type Flags struct {
-	Verbose         bool
-	Method          string
-	Data            string
-	Headers         string
-	UnixSocket      bool
+	// Verbose to turn on/off the verbose output mode
+	Verbose bool
+	// Method denotes the http method the current http request is using
+	Method string
+	// Data denotes the payload to be sent to the server parsed via command line
+	Data string
+	// Headers denotes the header information to be sent to the server
+	Headers string
+	// UnixSocket flag sets scour into unixsocket mode
+	UnixSocket bool
+	// InteractiveMode opens scour console where requests can be sent and received interactively
 	InteractiveMode bool
 }
 
+// NewFlags is a consuructor function for Flags
 func NewFlags() *Flags {
 	return &Flags{}
 }
 
+// ValidateAll implements validation for Flags values
 func (f *Flags) ValidateAll() error {
 	if !slices.Contains(AllSupportedConn, f.Method) {
 		return fmt.Errorf("connection type %s passed is not supported. please pass in a supported type: GET, DELETE, PUT, POST. Use --unix-socket or --abstract-unix-socket flags for socket connection.\n")

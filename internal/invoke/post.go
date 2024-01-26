@@ -11,6 +11,9 @@ import (
 	"time"
 )
 
+// Post sends a POST HTTP request to the specified URL with the provided data.
+// It manages request timeouts using context, logs relevant information,
+// and returns the response headers and body as a byte slice.
 func Post(ctx context.Context, url *parser.HTTP, data []byte) (*RespHeaders, []byte) {
 	_ = &RespHeaders{}
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
