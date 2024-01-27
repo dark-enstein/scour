@@ -41,19 +41,12 @@ func Post(ctx context.Context, url parser.Url, data []byte) (*RespHeaders, []byt
 		log.Printf("Response: %v\n", respH)
 	}
 
-	var buf bytes.Buffer
-	tmp := make([]byte, READ_PAGESIZE)
-	for {
-		n, err := resp.Body.Read(tmp)
-		if err != nil {
-			if err != io.EOF {
-				fmt.Println("Error receiving response:", err.Error())
-				buf.Write(tmp[:n])
-			}
-			break
-		}
-		buf.Write(tmp[:n])
+	responseStream, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Println("Error receiving response:", err.Error())
+		return nil, nil
 	}
+
 	if http2.ParseLogLevelFromCtx(ctx, http2.KeyV) == true {
 		log.Printf("Buffer length: %d\n", buf.Len())
 	}
@@ -64,5 +57,6 @@ func Post(ctx context.Context, url parser.Url, data []byte) (*RespHeaders, []byt
 	if http2.ParseLogLevelFromCtx(ctx, http2.KeyV) == true {
 		log.Printf("Time taken: %s\n", tDur.String())
 	}
+
 	return respH, buf.Bytes(), err
 }

@@ -19,7 +19,7 @@ var (
 	HTTPS            = "https"
 	MethodSocket     = "SOCKET"
 	MethodAbsSocket  = "ABSSOCKET"
-	AllSupportedConn = []string{MethodSocket, http.MethodGet, http.MethodPut, http.MethodPost, http.MethodDelete}
+	AllSupportedConn = []string{MethodSocket, http.MethodGet, http.MethodPut, http.MethodPost, http.MethodDelete, http.MethodPatch}
 	Help             = `
     Usage:
 	scour [flags] <url>
