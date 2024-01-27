@@ -13,6 +13,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"os/exec"
 	"sync"
 	"time"
 )
@@ -63,9 +64,9 @@ func UnixSock(ctx context.Context, url parser.Url, it bool) ([]byte, error) {
 		return nil, err
 	}
 
-	id, _, communication, err := NewConsole(ctx, conn, url, it).Enter()
+	_, _, communication, err := NewConsole(ctx, conn, url, it).Enter()
 	flat := flatten(communication, []byte("\n"))
-	fmt.Printf(UNIXSUMMARY, id, flat, err.Error())
+	//fmt.Printf(UNIXSUMMARY, id, flat, err.Error())
 	return flat, err
 }
 
@@ -154,6 +155,7 @@ func (c *Console) Enter() (sessID string, code int, communication [][]byte, err 
 			c.Lock()
 			ctx, cancel := context.WithTimeout(c.ctx, CONN_TIMEOUT*time.Second)
 			defer cancel()
+			c.resource = lineReq
 			_, errSend := c.socSend(ctx)
 			err = fmt.Errorf("%s: %w", err, errSend)
 			if err != nil {
@@ -259,4 +261,61 @@ try:
 		}
 	}
 	return false
+}
+
+// CreateSocket creates a socket for testing
+func CreateSocket(name string) error {
+	// delete socket if already exist
+	_, err := os.Stat(name)
+	if errors.Is(err, os.ErrExist) {
+		log.Println("exists")
+		err := os.RemoveAll(name)
+		if err != nil {
+			log.Println("Failed to remove socket")
+			return errors.New("failed to remove socket")
+		}
+	}
+
+	var cmdChan = make(chan string)
+	defer close(cmdChan)
+	const exitErrPrefix = "INTERNAL"
+
+	wg := sync.WaitGroup{}
+	// create socket TODO: make this function into a fullyfledged feature, if the approach will be to use nc, then as part of the init checks of scour, nc sould be confirmed to exist on the system it is run first
+	go func(ch chan string) {
+		wg.Add(1)
+		args := fmt.Sprintf("echo -e this is the sample response | nc -lk -U %s", name)
+		cmd := exec.Command("bash", "-c", args)
+		stdout, err := cmd.StdoutPipe()
+		if err != nil {
+			log.Println("INTERNAL: could not create stdout pipe:", err.Error())
+			ch <- fmt.Errorf("INTERNAL: could not create stdout pipe: %s\n", err.Error()).Error()
+		}
+
+		if err := cmd.Start(); err != nil {
+			log.Println("INTERNAL: running command errored with:", err.Error())
+			ch <- fmt.Errorf("INTERNAL: could not create socket due to: %s\n", err.Error()).Error()
+		}
+
+		output, err := io.ReadAll(stdout)
+		if err != nil {
+			log.Println("INTERNAL: could not read stdout pipe stream:", err.Error())
+			ch <- fmt.Errorf("INTERNAL: could not read stdout pipe stream: %s\n", err.Error()).Error()
+		}
+
+		if err := cmd.Wait(); err != nil {
+			log.Println("INTERNAL: could not create socket:", err.Error())
+			ch <- fmt.Errorf("INTERNAL: could not create socket: %s\n", err.Error()).Error()
+		}
+
+		fmt.Printf("Created socket: %s\n", output)
+		wg.Done()
+	}(cmdChan)
+
+	for output := range cmdChan {
+		fmt.Println("Socket output:", output)
+	}
+
+	wg.Wait()
+	return nil
 }

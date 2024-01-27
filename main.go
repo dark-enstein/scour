@@ -56,7 +56,7 @@ connecting to %s
 
 func main() {
 	// setDebug flag is used for toggling debug mode on or off
-	var setDebug = true
+	var setDebug = false
 	var help bool
 	var out string
 
@@ -79,7 +79,12 @@ func main() {
 		}
 		fmt.Printf(ScourASCII, FLGS.Verbose)
 		fmt.Println("all args:", pflag.Args())
-		help, out = _main([]string{fmt.Sprintf("%s %s", pflag.Args()[0], pflag.Args()[1])})
+		if pflag.NArg() > 0 {
+			// TODO: implement a smoother _main() function that properly handles the argslist as they are, without needing it as a string to process it
+			help, out = _main([]string{fmt.Sprintf("%s %s", pflag.Args()[0], pflag.Args()[1])})
+		} else {
+			help, out = _main([]string{""})
+		}
 	}
 	if help {
 		pflag.PrintDefaults()
@@ -96,6 +101,7 @@ func initFlags() error {
 	//pflag.BoolVarP(&FLGS.UnixSocket, "abstract-unix-socket", "aus", false, "(HTTP) Connect through an abstract Unix domain socket, instead of using the network. Note: netstat shows the path of an abstract socket prefixed with '@', however the <path> argument should not have this leading character.\nIf --abstract-unix-socket is provided several times, the last set value is used.\n")
 	pflag.BoolVarP(&FLGS.UnixSocket, "unix-socket", "u", false, "(HTTP) Connect through this Unix domain socket, instead of using the network.\nIf --unix-socket is provided several times, the last set value is used.")
 	pflag.BoolVarP(&FLGS.InteractiveMode, "it", "i", false, "Toggles console mode for socket connection. Only supported when using '--abstract-unix-socket'.")
+	pflag.StringVarP(&FLGS.SocketLoc, "create-socket", "c", "", "Creates a socket at the specified path")
 	pflag.Parse()
 	return FLGS.ValidateAll()
 }
@@ -118,6 +124,14 @@ func _main(args []string) (help bool, output string) {
 		return true, ""
 	}
 	instanceCtx := context.WithValue(context.Background(), httparser.KeyV, FLGS.Verbose)
+
+	if len(FLGS.SocketLoc) > 1 {
+		if err := invoke.CreateSocket(FLGS.SocketLoc); err != nil {
+			log.Println(err.Error())
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
 
 	url, err := parseUrl(instanceCtx, args[0], FLGS)
 	if err != nil {
