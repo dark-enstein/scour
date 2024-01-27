@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"github.com/dark-enstein/scour/internal/config"
 	"github.com/dark-enstein/scour/internal/invoke"
+	"github.com/dark-enstein/scour/internal/invoke/httpoke"
+	"github.com/dark-enstein/scour/internal/invoke/socket"
 	"github.com/dark-enstein/scour/internal/parser"
 	"github.com/dark-enstein/scour/internal/parser/httparser"
 	"github.com/dark-enstein/scour/internal/parser/socketparser"
@@ -38,6 +40,8 @@ Debug = %v
 	// ParsedUrlOutput holds the template for parsing url information in verbose mode. TODO: This should be refactored to using go:embed via text files
 	ParsedUrlOutput = `
 connecting to %s
+*   Trying %s...
+* Connected to %s (%s) port %s
 > %s /%s %s/1.1
 > Host: %s
 > Accept: */
@@ -51,7 +55,7 @@ connecting to %s
 < Connection: %s
 < Server: %s
 < Access-Control-Allow-Origin: %s
-< Access-Control-Allow-Credentials: %s
+< Access-Control-Allow-Credentials: %v
 `
 )
 
@@ -99,6 +103,7 @@ func main() {
 
 // initFlags parses in cmdline flags, and does validation on them
 func initFlags() error {
+	// TODO: Switch to using cobra or some more robust cli framework
 	pflag.BoolVarP(&FLGS.Verbose, "verbose", "v", false, "Turn on/off debug mode.")
 	pflag.StringVarP(&FLGS.Method, "X", "X", http.MethodGet, "Set request method.")
 	pflag.StringVarP(&FLGS.Data, "data", "d", "", "Pass request data.")
@@ -131,7 +136,7 @@ func _main(args []string) (help bool, output string) {
 	instanceCtx := context.WithValue(context.Background(), httparser.KeyV, FLGS.Verbose)
 
 	if len(FLGS.SocketLoc) > 1 {
-		if err := invoke.CreateSocket(FLGS.SocketLoc); err != nil {
+		if err := socket.CreateSocketSubProc(FLGS.SocketLoc); err != nil {
 			log.Println(err.Error())
 			os.Exit(1)
 		}
@@ -148,21 +153,21 @@ func _main(args []string) (help bool, output string) {
 
 	switch FLGS.Method {
 	case http.MethodGet:
-		headers, resp, err = invoke.Get(instanceCtx, url)
+		headers, resp, err = httpoke.Get(instanceCtx, url)
 	case http.MethodPost:
-		headers, resp, err = invoke.Post(instanceCtx, url, []byte(FLGS.Data))
+		headers, resp, err = httpoke.Post(instanceCtx, url, []byte(FLGS.Data))
 	case http.MethodDelete:
-		headers, resp, err = invoke.Delete(instanceCtx, url)
+		headers, resp, err = httpoke.Delete(instanceCtx, url)
 	case http.MethodPut:
-		headers, resp, err = invoke.Put(instanceCtx, url, []byte(FLGS.Data))
+		headers, resp, err = httpoke.Put(instanceCtx, url, []byte(FLGS.Data))
 	case http.MethodPatch:
-		headers, resp, err = invoke.Patch(instanceCtx, url, []byte(FLGS.Data))
+		headers, resp, err = httpoke.Patch(instanceCtx, url, []byte(FLGS.Data))
 	case config.MethodSocket:
-		resp, err = invoke.UnixSock(instanceCtx, url, FLGS.InteractiveMode)
+		resp, err = socket.UnixSock(instanceCtx, url, FLGS.InteractiveMode)
 	}
 
 	if FLGS.Verbose {
-		output += fmt.Sprintf(ParsedUrlOutput, url.Host(), strings.ToUpper(url.Path()), url.Path(), url.Protocol().MustUpper(), url.Host()) + "\n"
+		output += fmt.Sprintf(ParsedUrlOutput, url.Host(), url.Host(), url.Host(), url.Host(), url.Port(), strings.ToUpper(url.Path()), url.Path(), url.Protocol().MustUpper(), url.Host()) + "\n"
 		output += fmt.Sprintf(InvokeOutput, headers.Protocol, headers.RespCode, headers.Date, headers.ContentType, headers.ContentLength, headers.Connection, headers.Server, headers.AccessControlAllowOrigin, headers.AccessControlAllowCredentials) + "\n"
 	}
 	output += string(resp)
@@ -170,26 +175,23 @@ func _main(args []string) (help bool, output string) {
 }
 
 // parseUrl parses the right url from the request
-func parseUrl(ctx context.Context, urlString string, flag *config.Flags) (parser.Url, error) {
+func parseUrl(ctx context.Context, urlString string, flag *config.Flags) (url parser.Url, err error) {
 	if len(urlString) < 1 {
 		return nil, fmt.Errorf("url string empty")
 	}
 	switch flag.Resolve() {
 	case config.MODE_HTTP:
-		url, err := httparser.NewUrl(ctx, urlString)
-		if err != nil {
-			return nil, err
-		}
-		return url, nil
+		httpurl, _ := httparser.NewUrl(ctx, urlString)
+		url = httpurl
 	case config.MODE_SOCKET:
-		socket := socketparser.NewSocket(ctx, urlString)
-		err := socket.Err()
-		if err != nil {
-			return nil, err
-		}
-		return socket, nil
+		socketUrl := socketparser.NewSocket(ctx, urlString)
+		url = socketUrl
 	}
-	return nil, nil
+
+	if url.Err() != nil {
+		return nil, err
+	}
+	return url, nil
 }
 
 // debug sets some default flag values for Goland debugging

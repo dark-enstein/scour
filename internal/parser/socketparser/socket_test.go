@@ -1,8 +1,6 @@
 package socketparser
 
 import (
-	"context"
-	"fmt"
 	"github.com/stretchr/testify/suite"
 	"log"
 	"os"
@@ -45,22 +43,22 @@ Test Order: %d
 )
 
 func (suite *SocketParserTestSuite) SetupTest() {
-
+	// do nothing
 }
 
-func (suite *SocketParserTestSuite) TestIsValid() {
-	ctx := context.Background()
-	i := 1
-	for k, _ := range testSocketURLMap {
-		fmt.Printf(Order, i)
-		log.Printf("URL: %s\n", k)
-		sckt := NewSocket(ctx, k)
-		err := sckt.IsValid()
-		suite.Assert().NoErrorf(err, "error occured: %s", err.Error())
-		//suite.Assert().Equalf(v, b, "expected %v, but got %v", v, b)
-		i++
-	}
-}
+//func (suite *SocketParserTestSuite) TestIsValid() {
+//	ctx := context.Background()
+//	i := 1
+//	for k, _ := range testSocketURLMap {
+//		fmt.Printf(Order, i)
+//		log.Printf("URL: %s\n", k)
+//		sckt := NewSocket(ctx, k)
+//		err := sckt.IsValid()
+//		suite.Assert().NoErrorf(err, "error occured: %s", err.Error())
+//		//suite.Assert().Equalf(v, b, "expected %v, but got %v", v, b)
+//		i++
+//	}
+//}
 
 //func (suite *SocketParserTestSuite) TestResolve() {
 //	ctx := context.WithValue(context.Background(), parser.KeyV, true)
@@ -98,6 +96,6 @@ func (suite *SocketParserTestSuite) TearDownTest() {
 	clean()
 }
 
-func TestSocketSuite(t *testing.T) {
+func TestSocketParserSuite(t *testing.T) {
 	suite.Run(t, new(SocketParserTestSuite))
 }

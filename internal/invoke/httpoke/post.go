@@ -1,9 +1,10 @@
-package invoke
+package httpoke
 
 import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/dark-enstein/scour/internal/invoke"
 	"github.com/dark-enstein/scour/internal/parser"
 	"github.com/dark-enstein/scour/internal/parser/httparser"
 	"io"
@@ -15,8 +16,8 @@ import (
 // Post sends a POST HTTP request to the specified URL with the provided data.
 // It manages request timeouts using context, logs relevant information,
 // and returns the response headers and body as a byte slice.
-func Post(ctx context.Context, url parser.Url, data []byte) (*RespHeaders, []byte, error) {
-	_ = &RespHeaders{}
+func Post(ctx context.Context, url parser.Url, data []byte) (*invoke.RespHeaders, []byte, error) {
+	_ = &invoke.RespHeaders{}
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url.String(), bytes.NewBuffer(data))
@@ -36,7 +37,7 @@ func Post(ctx context.Context, url parser.Url, data []byte) (*RespHeaders, []byt
 	}(resp.Body)
 	tDur := time.Since(t1)
 
-	respH := newHeaders(resp.Status, fmt.Sprintf("%s/1.1", url.Protocol().String()), resp.Header.Get("Date"), resp.Header.Get("Content-Type"), resp.Header.Get("Content-Length"), resp.Header.Get("Connection"), resp.Header.Get("Server"), resp.Header.Get("Access-Control-Allow-Origin"), resp.Header.Get("Access-Control-Allow-Credentials"))
+	respH := invoke.NewHeaders(resp.Status, fmt.Sprintf("%s/1.1", url.Protocol().String()), resp.Header.Get("Date"), resp.Header.Get("Content-Type"), resp.Header.Get("Content-Length"), resp.Header.Get("Connection"), resp.Header.Get("Server"), resp.Header.Get("Access-Control-Allow-Origin"), resp.Header.Get("Access-Control-Allow-Credentials"))
 	if httparser.ParseLogLevelFromCtx(ctx, httparser.KeyV) == true {
 		log.Printf("Response: %v\n", respH)
 	}

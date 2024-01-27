@@ -10,6 +10,7 @@ HELMPACKAGE := "bumper"
 
 test:
 	go test ./... -v
+	sh script/mshift_test.sh
 
 build:
 	rm -rf build

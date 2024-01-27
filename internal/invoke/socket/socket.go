@@ -1,8 +1,10 @@
-package invoke
+package socket
 
 import (
 	"bufio"
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/dark-enstein/scour/internal/parser"
@@ -14,8 +16,13 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"os/signal"
+	"path/filepath"
+	"strconv"
 	"sync"
+	"syscall"
 	"time"
+	"unicode"
 )
 
 const (
@@ -37,10 +44,11 @@ Errors:
 	DEFAULT_LIMIT = 5                // Default limit for iterative operations.
 	RCV_PAGESIZE  = 1024             // Default page size for receiving data.
 	CONN_TIMEOUT  = time.Duration(2) // Default connection timeout duration.
+	SOCKET_GET    = "get"
 )
 
 var (
-	ERR_PATHNOTSOCKET = errors.New("file path not a socket") // Error when the provided path is not a socket.
+	ERR_PATHNOTSOCKET = errors.New("file resource not a socket") // Error when the provided resource is not a socket.
 )
 
 // UnixSock establishes a Unix socket connection and initiates a console session.
@@ -53,16 +61,16 @@ func UnixSock(ctx context.Context, url parser.Url, it bool) ([]byte, error) {
 	}
 	mux.Unlock()
 	conn, err := net.Dial("unix", url.Path())
+	if err != nil {
+		log.Printf("Error connecting to unix socket %s: %s\n", url.Path(), err.Error())
+		return nil, err
+	}
 	defer func(conn net.Conn) {
 		err = conn.Close()
 		if err != nil {
 			log.Println("error encountered closing socket connection:", err)
 		}
 	}(conn)
-	if err != nil {
-		log.Printf("Error connecting to unix socket %s: %s\n", url.Path(), err.Error())
-		return nil, err
-	}
 
 	_, _, communication, err := NewConsole(ctx, conn, url, it).Enter()
 	flat := flatten(communication, []byte("\n"))
@@ -173,7 +181,7 @@ func (c *Console) Enter() (sessID string, code int, communication [][]byte, err 
 		c.Lock()
 		ctx, cancel := context.WithTimeout(c.ctx, CONN_TIMEOUT*time.Second)
 		defer cancel()
-		//path, resource := c.url.Path(), c.url.Resource()
+		//resource, resource := c.url.Path(), c.url.Resource()
 		_, err := c.socSend(ctx)
 		communication = append(communication, c.url.Bytes())
 		if err != nil {
@@ -191,12 +199,13 @@ func (c *Console) Enter() (sessID string, code int, communication [][]byte, err 
 // socRcv handles receiving data from the network connection.
 // It returns the received data and any error encountered.
 func (c *Console) socRcv(ctx context.Context) ([]byte, error) {
-	color.Green("<< rcvin:\n")
+	color.Green("<< receiving:\n")
 	stream, err := io.ReadAll(c.conn)
 	if err != nil {
-		log.Println("error encountered from socker connection:", err.Error())
+		log.Println("error encountered from socket connection:", err.Error())
 		return nil, err
 	}
+	fmt.Printf("Received stream: %s\n", stream)
 	return stream, nil
 }
 
@@ -263,8 +272,228 @@ try:
 	return false
 }
 
-// CreateSocket creates a socket for testing
-func CreateSocket(name string) error {
+type Creator struct {
+	socket   string
+	resource string
+	jsonLoc  string
+	sync.Mutex
+}
+
+func NewCreator() *Creator {
+	return &Creator{}
+}
+
+func (c *Creator) StartSocket(ctx context.Context, socketUpchan chan struct{}, errChan chan error) {
+	// delete if socket file already exists
+	_, err := os.Stat(c.socket)
+	//fmt.Println("Socket stat:", err, c.socket)
+	if !errors.Is(err, os.ErrNotExist) {
+		fmt.Println("Socket exist. Removing...")
+		err := os.RemoveAll(c.socket)
+		if err != nil {
+			log.Println("failed to delete used socket")
+		}
+	}
+
+	//<-time.After(2 * time.Second)
+
+	// Create a Unix domain socket and listen for incoming connections.
+	socket, err := net.Listen("unix", c.socket)
+	if err != nil {
+		log.Println("failed to create socket:", err)
+		errChan <- err
+		return
+	}
+	defer socket.Close()
+
+	// return a response via channel once socket is created
+	socketUpchan <- struct{}{}
+
+	// Cleanup the socketfile on syscall.SIGTERM in a separate go routine
+	ch := make(chan os.Signal, 1)
+	wg := sync.WaitGroup{}
+	signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		<-ch
+		fmt.Println("detected interrupt signal. cleaning socket")
+		err := os.RemoveAll(c.socket)
+		if err != nil {
+			log.Println("failed to delete used socket")
+		}
+		return
+	}()
+
+	var expectingConn = true
+
+	// serverLoop
+	for expectingConn {
+		// Accept an incoming connection.
+		conn, err := socket.Accept()
+		if err != nil {
+			log.Println("error accepting connection:", err.Error())
+			errChan <- err
+			return
+		}
+
+		// Handle the connection in a separate goroutine.
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			// Read all client request body
+			log.Println("handling api request")
+			var cli = make(chan []byte)
+			var cliBytes = []byte{}
+			var alive bool
+			go func(stream chan []byte) {
+				clientStream, err := io.ReadAll(conn)
+				if err != nil {
+					log.Printf("error receiving client bytes stream: %s\n", err.Error())
+				}
+				stream <- clientStream
+				return
+			}(cli)
+			select {
+			case cliBytes = <-cli:
+				fmt.Println("cli bytes:", cliBytes)
+				if err != nil {
+					errChan <- err
+				}
+				alive = true
+			case <-time.After(5 * time.Second):
+				log.Println("socket timeout. socket stayed up for too long without receiving client connection")
+				alive = false
+			}
+
+			if alive {
+				api, err := handleSocketApi(cliBytes)
+				if err != nil {
+					log.Println("api response not equals nil")
+					errorBytes := []byte(fmt.Sprintf("ERROR: %s\n", cliBytes))
+					c.Lock()
+					_, err = conn.Write(errorBytes)
+					c.Unlock()
+					if err != nil {
+						errChan <- err
+					}
+					return
+				}
+				log.Println("handling api request successful")
+
+				// Echo the api response back to the client
+				c.Lock()
+				_, err = conn.Write([]byte(api))
+				c.Unlock()
+				if err != nil {
+					errChan <- err
+				}
+			} else {
+				log.Println("client dead. closing connection")
+				c.Lock()
+				expectingConn = false
+				c.Unlock()
+				return
+			}
+			conn.Close()
+			return
+		}()
+	}
+	//ch <- syscall.SIGTERM
+	wg.Wait()
+}
+
+// handleSocketApi handles the client connection and according toe the resource requested TODO: implement this in the http.Handler/HandlerFunc fashion
+func handleSocketApi(b []byte) (string, error) {
+	//b = []byte("/" + SOCKET_GET)
+	if b[0] != []byte("/")[0] {
+		return "", fmt.Errorf("url string invalid\n")
+	}
+
+	// remove the protocol if appended
+	splice := bytes.Split(b, []byte("/"))
+	len := len(splice)
+
+	// check for the parent resource of the resource
+	switch string(splice[1]) {
+	case SOCKET_GET:
+		//fmt.Println("in socket get")
+		var childPath []byte
+		// if sub resource is present
+		if len > 2 {
+			childPath = bytes.Join(splice[2:], []byte("/"))
+		}
+		b, err := getHandler(childPath)
+		if err != nil {
+			return "", err
+		}
+		return string(b), nil
+	}
+	return "", nil
+}
+
+type UUIDs struct {
+	List []string `json:"uuid_list"`
+}
+
+func (u UUIDs) ByteSlice() (b [][]byte) {
+	for i := 0; i < len(u.List); i++ {
+		if i < len(u.List)-1 {
+			b = append(b, []byte(u.List[i]+"\n"))
+		} else {
+			b = append(b, []byte(u.List[i]))
+		}
+	}
+	return
+}
+
+func getHandler(path []byte) ([]byte, error) {
+	// check is resource is absent, or it is present and empty
+	if len(path) == 0 || path == nil {
+		g, err := getGenAll()
+		return tflatten(g), err
+	}
+	if !unicode.IsNumber(rune(path[0])) {
+		return nil, fmt.Errorf("get subroute passed in isn't a number")
+	}
+	fmt.Println("index str:", string(path))
+	i, _ := strconv.Atoi(string(path))
+	return findIndexGen(i)
+}
+
+func findIndexGen(i int) ([]byte, error) {
+	fmt.Println("index received:", i)
+	if i < 0 || i > 15 {
+		return nil, fmt.Errorf("index less than 0 or greater than 15\n")
+	}
+	b, err := getGenAll()
+	if err != nil {
+		return nil, err
+	}
+
+	return b[i], nil
+}
+
+func getGenAll() ([][]byte, error) {
+	b, err := os.ReadFile(filepath.Join("./sock", "uuid.json"))
+	if err != nil {
+		return nil, err
+	}
+	var uds UUIDs
+	err = json.Unmarshal(b, &uds)
+	return uds.ByteSlice(), nil
+}
+
+func tflatten(bb [][]byte) (bflat []byte) {
+	for i := 0; i < len(bb); i++ {
+		bflat = append(bflat, bb[i]...)
+	}
+	return
+}
+
+// CreateSocketSubProc creates a socket for testing
+func CreateSocketSubProc(name string) error {
 	// delete socket if already exist
 	_, err := os.Stat(name)
 	if errors.Is(err, os.ErrExist) {
@@ -282,8 +511,8 @@ func CreateSocket(name string) error {
 
 	wg := sync.WaitGroup{}
 	// create socket TODO: make this function into a fullyfledged feature, if the approach will be to use nc, then as part of the init checks of scour, nc sould be confirmed to exist on the system it is run first
+	wg.Add(1)
 	go func(ch chan string) {
-		wg.Add(1)
 		args := fmt.Sprintf("echo -e this is the sample response | nc -lk -U %s", name)
 		cmd := exec.Command("bash", "-c", args)
 		stdout, err := cmd.StdoutPipe()
