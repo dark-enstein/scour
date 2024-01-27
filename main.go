@@ -82,7 +82,11 @@ func main() {
 		fmt.Println("all args:", pflag.Args())
 		if pflag.NArg() > 0 {
 			// TODO: implement a smoother _main() function that properly handles the argslist as they are, without needing it as a string to process it
-			help, out = _main([]string{fmt.Sprintf("%s %s", pflag.Args()[0], pflag.Args()[1])})
+			if pflag.NArg() == 1 {
+				help, out = _main(pflag.Args())
+			} else {
+				help, out = _main([]string{fmt.Sprintf("%s %s", pflag.Args()[0], pflag.Args()[1])})
+			}
 		} else {
 			help, out = _main([]string{""})
 		}
@@ -151,15 +155,14 @@ func _main(args []string) (help bool, output string) {
 		headers, resp, err = invoke.Delete(instanceCtx, url)
 	case http.MethodPut:
 		headers, resp, err = invoke.Put(instanceCtx, url, []byte(FLGS.Data))
-		headers, resp = invoke.Put(instanceCtx, p, []byte(FLGS.Data))
 	case http.MethodPatch:
-		headers, resp = invoke.Patch(instanceCtx, p, []byte(FLGS.Data))
+		headers, resp, err = invoke.Patch(instanceCtx, url, []byte(FLGS.Data))
 	case config.MethodSocket:
 		resp, err = invoke.UnixSock(instanceCtx, url, FLGS.InteractiveMode)
 	}
 
 	if FLGS.Verbose {
-		output += fmt.Sprintf(ParsedUrlOutput, p.Host(), strings.ToUpper(p.Path()), p.Path(), p.Protocol().MustUpper(), p.Host()) + "\n"
+		output += fmt.Sprintf(ParsedUrlOutput, url.Host(), strings.ToUpper(url.Path()), url.Path(), url.Protocol().MustUpper(), url.Host()) + "\n"
 		output += fmt.Sprintf(InvokeOutput, headers.Protocol, headers.RespCode, headers.Date, headers.ContentType, headers.ContentLength, headers.Connection, headers.Server, headers.AccessControlAllowOrigin, headers.AccessControlAllowCredentials) + "\n"
 	}
 	output += string(resp)

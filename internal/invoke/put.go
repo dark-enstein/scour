@@ -5,7 +5,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/dark-enstein/scour/internal/parser"
-	http2 "github.com/dark-enstein/scour/internal/parser/httparser"
+	"github.com/dark-enstein/scour/internal/parser/httparser"
 	"io"
 	"log"
 	"net/http"
@@ -38,25 +38,25 @@ func Put(ctx context.Context, url parser.Url, data []byte) (*RespHeaders, []byte
 	//fmt.Println(resp)
 
 	respH := newHeaders(resp.Status, fmt.Sprintf("%s/1.1", url.Protocol().String()), resp.Header.Get("Date"), resp.Header.Get("Content-Type"), resp.Header.Get("Content-Length"), resp.Header.Get("Connection"), resp.Header.Get("Server"), resp.Header.Get("Access-Control-Allow-Origin"), resp.Header.Get("Access-Control-Allow-Credentials"))
-	if http2.ParseLogLevelFromCtx(ctx, http2.KeyV) == true {
+	if httparser.ParseLogLevelFromCtx(ctx, httparser.KeyV) == true {
 		log.Printf("Response: %v\n", respH)
 	}
 
 	responseStream, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Println("Error receiving response:", err.Error())
-		return nil, nil
+		return nil, nil, err
 	}
 
-	if parser.ParseLogLevelFromCtx(ctx, parser.KeyV) == true {
+	if httparser.ParseLogLevelFromCtx(ctx, httparser.KeyV) == true {
 		log.Printf("Buffer length: %d\n", len(responseStream))
 	}
 	if err != nil {
 		log.Printf("Error encountered decoding response body: %s\n", err.Error())
 		return nil, nil, err
 	}
-	if http2.ParseLogLevelFromCtx(ctx, http2.KeyV) == true {
+	if httparser.ParseLogLevelFromCtx(ctx, httparser.KeyV) == true {
 		log.Printf("Time taken: %s\n", tDur.String())
 	}
-	return respH, res, nil
+	return respH, responseStream, nil
 }
