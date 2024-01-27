@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 )
 
 var (
@@ -30,7 +31,7 @@ Debug = %v
 	// ParsedUrlOutput holds the template for parsing url information in verbose mode. TODO: This should be refactored to using go:embed via text files
 	ParsedUrlOutput = `
 connecting to %s
-> GET /%s %s/1.1
+> %s /%s %s/1.1
 > Host: %s
 > Accept: */
 `
@@ -97,12 +98,14 @@ func _main(args []string) (help bool, output string) {
 		headers, resp = invoke.Delete(instanceCtx, p)
 	case http.MethodPut:
 		headers, resp = invoke.Put(instanceCtx, p, []byte(FLGS.Data))
+	case http.MethodPatch:
+		headers, resp = invoke.Patch(instanceCtx, p, []byte(FLGS.Data))
 		//case config.MethodSocket:
 		//	headers, resp = invoke.UnixSock(instanceCtx, p, []byte(FLGS.Data))
 	}
 
 	if FLGS.Verbose {
-		output += fmt.Sprintf(ParsedUrlOutput, p.Host(), p.Path(), p.Protocol().MustUpper(), p.Host()) + "\n"
+		output += fmt.Sprintf(ParsedUrlOutput, p.Host(), strings.ToUpper(p.Path()), p.Path(), p.Protocol().MustUpper(), p.Host()) + "\n"
 		output += fmt.Sprintf(InvokeOutput, headers.Protocol, headers.RespCode, headers.Date, headers.ContentType, headers.ContentLength, headers.Connection, headers.Server, headers.AccessControlAllowOrigin, headers.AccessControlAllowCredentials) + "\n"
 	}
 	output += string(resp)

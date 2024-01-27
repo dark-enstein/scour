@@ -11,14 +11,13 @@ import (
 	"time"
 )
 
-// Post sends a POST HTTP request to the specified URL with the provided data.
-// It manages request timeouts using context, logs relevant information,
-// and returns the response headers and body as a byte slice.
-func Post(ctx context.Context, url *parser.HTTP, data []byte) (*RespHeaders, []byte) {
+// Patch sends a PATCH HTTP request to the specified URL with the provided data.
+// It returns the response headers and body.
+func Patch(ctx context.Context, url *parser.HTTP, data []byte) (*RespHeaders, []byte) {
 	_ = &RespHeaders{}
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url.String(), bytes.NewBuffer(data))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPatch, url.String(), bytes.NewBuffer(data))
 	if err != nil {
 		log.Printf("Error creating request object: %s\n", err.Error())
 	}
