@@ -3,6 +3,8 @@ package socket
 import (
 	"context"
 	"fmt"
+	"github.com/dark-enstein/scour/internal/parser/httparser"
+	"github.com/dark-enstein/scour/internal/parser/socketparser"
 	"github.com/dark-enstein/scour/internal/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -124,36 +126,36 @@ func (suite *SocketTestSuite) TestHandleSocketAPI() {
 }
 
 // TODO: it hangs on socket connection
-//func (suite *SocketTestSuite) TestUnixSockIt() {
-//	ctx := context.WithValue(context.Background(), httparser.KeyV, true)
-//	var err = make(chan error, 1)
-//	var commsUpChan = make(chan struct{})
-//	var resource = "/get"
-//	go func() {
-//		suite.sockServer(ctx, commsUpChan, &input{
-//			socket:   socketLoc,
-//			resource: resource,
-//			jsonLoc:  jsonStoreLoc,
-//		}, err)
-//	}()
-//
-//	<-commsUpChan
-//
-//	//errConcrete := <-err
-//	//if errConcrete != nil {
-//	//	fmt.Printf("detected error: %s\n", errConcrete.Error())
-//	//	return
-//	//}
-//
-//	fmt.Printf("detected no error\n")
-//
-//	socket := socketparser.NewSocket(ctx, fmt.Sprintf("%s %s", socketLoc, resource))
-//	suite.Require().NoError(socket.Err())
-//
-//	byteStream, errConn := UnixSock(ctx, socket, false)
-//	suite.Require().NoError(errConn)
-//	log.Println("Test Response:", string(byteStream))
-//}
+func (suite *SocketTestSuite) TestUnixSockIt() {
+	ctx := context.WithValue(context.Background(), httparser.KeyV, true)
+	var err = make(chan error, 1)
+	var commsUpChan = make(chan struct{})
+	var resource = "/get"
+	go func() {
+		suite.sockServer(ctx, commsUpChan, &input{
+			socket:   socketLoc,
+			resource: resource,
+			jsonLoc:  jsonStoreLoc,
+		}, err)
+	}()
+
+	<-commsUpChan
+
+	//errConcrete := <-err
+	//if errConcrete != nil {
+	//	fmt.Printf("detected error: %s\n", errConcrete.Error())
+	//	return
+	//}
+
+	fmt.Printf("detected no error\n")
+
+	socket := socketparser.NewSocket(ctx, fmt.Sprintf("%s %s", socketLoc, resource))
+	suite.Require().NoError(socket.Err())
+
+	byteStream, errConn := UnixSock(ctx, socket, false)
+	suite.Require().NoError(errConn)
+	log.Println("Test Response:", string(byteStream))
+}
 
 func clean() {
 	err := os.RemoveAll(TESTDIR)

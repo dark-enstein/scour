@@ -110,8 +110,8 @@ func initFlags() error {
 	pflag.StringVarP(&FLGS.Headers, "Header", "H", "", "Pass in custom request headers.")
 	//pflag.BoolVarP(&FLGS.UnixSocket, "abstract-unix-socket", "aus", false, "(HTTP) Connect through an abstract Unix domain socket, instead of using the network. Note: netstat shows the path of an abstract socket prefixed with '@', however the <path> argument should not have this leading character.\nIf --abstract-unix-socket is provided several times, the last set value is used.\n")
 	pflag.BoolVarP(&FLGS.UnixSocket, "unix-socket", "u", false, "(HTTP) Connect through this Unix domain socket, instead of using the network.\nIf --unix-socket is provided several times, the last set value is used.")
-	pflag.BoolVarP(&FLGS.InteractiveMode, "it", "i", false, "Toggles console mode for socket connection. Only supported when using '--abstract-unix-socket'.")
-	pflag.StringVarP(&FLGS.SocketLoc, "create-socket", "c", "", "Creates a socket at the specified path")
+	pflag.BoolVarP(&FLGS.InteractiveMode, "it", "i", false, "Toggles console mode for socket connection. Only supported when using '--abstract-unix-socket'. (not stable)") // not stable
+	pflag.StringVarP(&FLGS.SocketLoc, "create-socket", "c", "", "Creates a socket at the specified path. (not stable)")                                                     // not stable
 	pflag.Parse()
 	return FLGS.ValidateAll()
 }

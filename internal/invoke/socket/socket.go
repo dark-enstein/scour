@@ -325,83 +325,84 @@ func (c *Creator) StartSocket(ctx context.Context, socketUpchan chan struct{}, e
 		return
 	}()
 
-	var expectingConn = true
+	//var expectingConn = true
 
 	// serverLoop
-	for expectingConn {
-		// Accept an incoming connection.
-		conn, err := socket.Accept()
-		if err != nil {
-			log.Println("error accepting connection:", err.Error())
-			errChan <- err
+	//for expectingConn {
+	// Accept an incoming connection.
+	conn, err := socket.Accept()
+	if err != nil {
+		log.Println("error accepting connection:", err.Error())
+		errChan <- err
+		return
+	}
+
+	// Handle the connection in a separate goroutine.
+	wg.Add(1)
+	go func(conn net.Conn) {
+		defer wg.Done()
+
+		// Read all client request body
+		log.Println("handling api request")
+		var cli = make(chan []byte)
+		var cliBytes = []byte{}
+		//var alive bool
+		go func(conn net.Conn, stream chan []byte) {
+			clientStream, err := io.ReadAll(conn)
+			if err != nil {
+				log.Printf("error receiving client bytes stream: %s\n", err.Error())
+			}
+			stream <- clientStream
 			return
+		}(conn, cli)
+		select {
+		case cliBytes = <-cli:
+			fmt.Println("cli bytes:", cliBytes)
+			if err != nil {
+				errChan <- err
+			}
+			//alive = true
+		case <-time.After(5 * time.Second):
+			log.Println("socket timeout. socket stayed up for too long without receiving client connection")
+			log.Println("client dead. closing connection")
+			//c.Lock()
+			//expectingConn = false
+			//c.Unlock()
+			return
+			//alive = false
+			//return
 		}
 
-		// Handle the connection in a separate goroutine.
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
-			// Read all client request body
-			log.Println("handling api request")
-			var cli = make(chan []byte)
-			var cliBytes = []byte{}
-			var alive bool
-			go func(stream chan []byte) {
-				clientStream, err := io.ReadAll(conn)
-				if err != nil {
-					log.Printf("error receiving client bytes stream: %s\n", err.Error())
-				}
-				stream <- clientStream
-				return
-			}(cli)
-			select {
-			case cliBytes = <-cli:
-				fmt.Println("cli bytes:", cliBytes)
-				if err != nil {
-					errChan <- err
-				}
-				alive = true
-			case <-time.After(5 * time.Second):
-				log.Println("socket timeout. socket stayed up for too long without receiving client connection")
-				alive = false
+		//if alive {
+		api, err := handleSocketApi(cliBytes)
+		if err != nil {
+			log.Println("api response not equals nil")
+			errorBytes := []byte(fmt.Sprintf("ERROR: %s\n", cliBytes))
+			c.Lock()
+			_, err = conn.Write(errorBytes)
+			c.Unlock()
+			if err != nil {
+				errChan <- err
 			}
-
-			if alive {
-				api, err := handleSocketApi(cliBytes)
-				if err != nil {
-					log.Println("api response not equals nil")
-					errorBytes := []byte(fmt.Sprintf("ERROR: %s\n", cliBytes))
-					c.Lock()
-					_, err = conn.Write(errorBytes)
-					c.Unlock()
-					if err != nil {
-						errChan <- err
-					}
-					return
-				}
-				log.Println("handling api request successful")
-
-				// Echo the api response back to the client
-				c.Lock()
-				_, err = conn.Write([]byte(api))
-				c.Unlock()
-				if err != nil {
-					errChan <- err
-				}
-			} else {
-				log.Println("client dead. closing connection")
-				c.Lock()
-				expectingConn = false
-				c.Unlock()
-				return
-			}
-			conn.Close()
 			return
-		}()
-	}
+		}
+		log.Println("handling api request successful")
+
+		// Echo the api response back to the client
+		c.Lock()
+		_, err = conn.Write([]byte(api))
+		c.Unlock()
+		if err != nil {
+			errChan <- err
+		}
+		//} else {
+		//}
+		//conn.Close()
+		return
+	}(conn)
+	//}
 	//ch <- syscall.SIGTERM
-	wg.Wait()
+	//wg.Wait()
 }
 
 // handleSocketApi handles the client connection and according toe the resource requested TODO: implement this in the http.Handler/HandlerFunc fashion

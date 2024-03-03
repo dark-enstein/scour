@@ -8,6 +8,8 @@ HELMPACKAGE := "bumper"
 
 .PHONY: build test clean run docker-run docker-build docker-push docker-tag helm-create helm-package helm-test kdeploy
 
+all: clean fmt test build run docker-tag docker-run docker-push
+
 test:
 	go test ./... -v
 	sh script/mshift_test.sh
