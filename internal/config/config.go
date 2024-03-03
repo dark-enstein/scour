@@ -2,8 +2,14 @@ package config
 
 import (
 	"fmt"
+	"github.com/fatih/color"
 	"golang.org/x/exp/slices"
 	"net/http"
+)
+
+const (
+	MODE_HTTP = iota + 1
+	MODE_SOCKET
 )
 
 var (
@@ -45,6 +51,8 @@ type Flags struct {
 	UnixSocket bool
 	// InteractiveMode opens scour console where requests can be sent and received interactively
 	InteractiveMode bool
+	// SocketLoc saves the path to the socket to be created
+	SocketLoc string
 }
 
 // NewFlags is a consuructor function for Flags
@@ -54,8 +62,21 @@ func NewFlags() *Flags {
 
 // ValidateAll implements validation for Flags values
 func (f *Flags) ValidateAll() error {
+	// TODO: ensure flags who shouldn't be used together aren't used together
 	if !slices.Contains(AllSupportedConn, f.Method) {
-		return fmt.Errorf("connection type %s passed is not supported. please pass in a supported type: GET, DELETE, PUT, POST. Use --unix-socket or --abstract-unix-socket flags for socket connection.\n")
+		return fmt.Errorf("connection type \"%s\" passed is not supported. please pass in a supported type: GET, DELETE, PUT, POST. Use --unix-socket or --abstract-unix-socket flags for socket connection", f.Method)
+	}
+	if f.UnixSocket {
+		color.Green("Socket mode enabled")
+		f.Method = MethodSocket
 	}
 	return nil
+}
+
+// Resolve resolves the mode of the current request
+func (f *Flags) Resolve() int {
+	if f.UnixSocket {
+		return MODE_SOCKET
+	}
+	return MODE_HTTP
 }

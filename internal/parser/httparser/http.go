@@ -1,4 +1,4 @@
-package parser
+package httparser
 
 import (
 	"context"
@@ -36,7 +36,7 @@ func (u *HTTP) String() string {
 
 // Bytes method returns the raw URL as a byte slice.
 func (u *HTTP) Bytes() []byte {
-	return []byte(u.rawString)
+	return []byte(u.rawString + "\n")
 }
 
 // Protocol method returns a new Protocol struct representing the URL's protocol.
@@ -57,6 +57,11 @@ func (u *HTTP) Port() string {
 // Path method returns the URL's path component.
 func (u *HTTP) Path() string {
 	return u.path
+}
+
+// Resource method returns the Socket's resource component.
+func (u *HTTP) Resource() string {
+	return "Resource UNIMPLEMENTED for HTTP"
 }
 
 // Err method returns any error encountered during URL parsing.

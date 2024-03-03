@@ -3,3 +3,8 @@
 build
 build/**
 test/**
+*.curl
+**/**.sock
+
+# socket test artifacts
+internal/invoke/socket/sock

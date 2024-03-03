@@ -1,10 +1,12 @@
-package invoke
+package httpoke
 
 import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/dark-enstein/scour/internal/invoke"
 	"github.com/dark-enstein/scour/internal/parser"
+	"github.com/dark-enstein/scour/internal/parser/httparser"
 	"io"
 	"log"
 	"net/http"
@@ -13,8 +15,8 @@ import (
 
 // Patch sends a PATCH HTTP request to the specified URL with the provided data.
 // It returns the response headers and body.
-func Patch(ctx context.Context, url *parser.HTTP, data []byte) (*RespHeaders, []byte) {
-	_ = &RespHeaders{}
+func Patch(ctx context.Context, url parser.Url, data []byte) (*invoke.RespHeaders, []byte, error) {
+	_ = &invoke.RespHeaders{}
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodPatch, url.String(), bytes.NewBuffer(data))
@@ -27,32 +29,33 @@ func Patch(ctx context.Context, url *parser.HTTP, data []byte) (*RespHeaders, []
 	resp, err := cli.Do(req)
 	if err != nil {
 		log.Printf("POST request failed with: %s\n", err.Error())
-		return nil, nil
+		return nil, nil, err
 	}
 	defer func(Body io.ReadCloser) {
 		_ = Body.Close()
 	}(resp.Body)
 	tDur := time.Since(t1)
 
-	respH := newHeaders(resp.Status, fmt.Sprintf("%s/1.1", url.Protocol().String()), resp.Header.Get("Date"), resp.Header.Get("Content-Type"), resp.Header.Get("Content-Length"), resp.Header.Get("Connection"), resp.Header.Get("Server"), resp.Header.Get("Access-Control-Allow-Origin"), resp.Header.Get("Access-Control-Allow-Credentials"))
-	if parser.ParseLogLevelFromCtx(ctx, parser.KeyV) == true {
+	respH := invoke.NewHeaders(resp.Status, fmt.Sprintf("%s/1.1", url.Protocol().String()), resp.Header.Get("Date"), resp.Header.Get("Content-Type"), resp.Header.Get("Content-Length"), resp.Header.Get("Connection"), resp.Header.Get("Server"), resp.Header.Get("Access-Control-Allow-Origin"), resp.Header.Get("Access-Control-Allow-Credentials"))
+	if httparser.ParseLogLevelFromCtx(ctx, httparser.KeyV) == true {
 		log.Printf("Response: %v\n", respH)
 	}
 
 	responseStream, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Println("Error receiving response:", err.Error())
-		return nil, nil
+		return nil, nil, err
 	}
 
-	if parser.ParseLogLevelFromCtx(ctx, parser.KeyV) == true {
+	if httparser.ParseLogLevelFromCtx(ctx, httparser.KeyV) == true {
 		log.Printf("Buffer length: %d\n", len(responseStream))
 	}
 	if err != nil {
 		log.Printf("Error encountered decoding response body: %s\n", err.Error())
+		return nil, nil, err
 	}
-	if parser.ParseLogLevelFromCtx(ctx, parser.KeyV) == true {
+	if httparser.ParseLogLevelFromCtx(ctx, httparser.KeyV) == true {
 		log.Printf("Time taken: %s\n", tDur.String())
 	}
-	return respH, responseStream
+	return respH, responseStream, nil
 }

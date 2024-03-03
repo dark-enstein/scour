@@ -13,9 +13,9 @@ type RespHeaders struct {
 	AccessControlAllowCredentials bool   // Indicates if credentials are allowed in cross-origin requests.
 }
 
-// newHeaders creates a new instance of RespHeaders with provided header values.
+// NewHeaders creates a new instance of RespHeaders with provided header values.
 // ACAllowCred is interpreted as a boolean based on its string value.
-func newHeaders(code, proc, date, cType, cLength, conn, server, ACAllowOrigin, ACAllowCred string) *RespHeaders {
+func NewHeaders(code, proc, date, cType, cLength, conn, server, ACAllowOrigin, ACAllowCred string) *RespHeaders {
 	var ac bool
 	switch ACAllowCred {
 	case "true":
