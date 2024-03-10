@@ -1,1 +1,3 @@
+package go
 
+func default() {}
