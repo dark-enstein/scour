@@ -1,3 +1,3 @@
-package go
+package pkg
 
 func default() {}
